@@ -1,0 +1,14 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { --font-geist: "Inter", "Segoe UI", Arial, sans-serif; --font-newsreader: "Iowan Old Style", "Palatino Linotype", Georgia, serif; }
+* { box-sizing: border-box; }
+html { background: #e9dfdc; }
+body { margin: 0; background: radial-gradient(circle at 11% 10%, rgba(228, 211, 224, .9), transparent 29%), radial-gradient(circle at 88% 82%, rgba(231, 193, 130, .38), transparent 33%), linear-gradient(125deg, #eee8e3, #e7dddd 48%, #e4e1eb); font-family: var(--font-geist); }
+body::before { content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: .25; background-image: radial-gradient(rgba(77, 54, 52, .35) .6px, transparent .7px); background-size: 10px 10px; mix-blend-mode: soft-light; }
+.ambient { position: fixed; z-index: 0; border-radius: 999px; filter: blur(14px); opacity: .45; pointer-events: none; animation: drift 12s ease-in-out infinite alternate; }
+.ambient-one { top: 9%; left: 5%; width: 10rem; height: 10rem; background: #c7add2; }
+.ambient-two { right: 6%; bottom: 8%; width: 13rem; height: 13rem; background: #e4ba70; animation-delay: -5s; }
+@keyframes drift { to { transform: translate3d(28px, -16px, 0) scale(1.08); } }
+::selection { background: #d8c0d9; color: #2c242b; }
