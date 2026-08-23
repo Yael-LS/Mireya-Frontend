@@ -3,8 +3,9 @@
 import { FormEvent, KeyboardEvent, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { ArrowUp, BookOpenText, RefreshCw, Sparkles, User } from "lucide-react";
+import { ArrowUp, BookOpenText, Check, Copy, RefreshCw, Sparkles, User } from "lucide-react";
 import Image from "next/image";
+import confetti from "canvas-confetti";
 
 type Message = { role: "user" | "assistant"; content: string };
 
@@ -14,6 +15,60 @@ const suggestions = [
   { icon: "🌸", title: "Cultura Pop & K-dramas", label: "¿Qué opina sobre Bibble y los K-dramas?" },
   { icon: "✨", title: "Estética & Cuidado", label: "¿Cuáles son sus fijaciones estéticas y de skincare?" },
 ];
+
+function triggerEasterEgg(fullAccumulatedText: string, triggeredSet: Set<string>) {
+  const t = fullAccumulatedText.toLowerCase();
+
+  if ((t.includes("taylor") || t.includes("swift") || t.includes("swifty") || t.includes("swiftie")) && !triggeredSet.has("taylor")) {
+    triggeredSet.add("taylor");
+    confetti({
+      particleCount: 50,
+      spread: 75,
+      startVelocity: 35,
+      origin: { y: 0.8 },
+      colors: ["#D4AF37", "#F3E5AB", "#FAF0E6", "#C5A059"],
+      shapes: ["circle", "square"],
+      scalar: 0.9,
+    });
+  }
+
+  if ((t.includes("bibble") || t.includes("bible") || t.includes("fairytopia") || t.includes("barbie")) && !triggeredSet.has("bibble")) {
+    triggeredSet.add("bibble");
+    confetti({
+      particleCount: 55,
+      spread: 85,
+      startVelocity: 38,
+      origin: { y: 0.8 },
+      colors: ["#E8AEB7", "#B8E1FF", "#D8BBFF", "#E7C6FF"],
+      shapes: ["circle"],
+      scalar: 1.1,
+    });
+  }
+
+  if ((t.includes("skincare") || t.includes("piel") || t.includes("estétic") || t.includes("estetic")) && !triggeredSet.has("skincare")) {
+    triggeredSet.add("skincare");
+    confetti({
+      particleCount: 35,
+      spread: 55,
+      startVelocity: 30,
+      origin: { y: 0.8 },
+      colors: ["#FFD6BA", "#FFE5D9", "#FFF1E6"],
+      scalar: 0.85,
+    });
+  }
+
+  if (t.includes("althea") && !triggeredSet.has("althea")) {
+    triggeredSet.add("althea");
+    confetti({
+      particleCount: 35,
+      spread: 60,
+      startVelocity: 32,
+      origin: { y: 0.8 },
+      colors: ["#9C7866", "#CBB3A3", "#FAF6F0"],
+      scalar: 0.85,
+    });
+  }
+}
 
 function parseSse(chunk: string, onDelta: (delta: string) => void) {
   for (const eventBlock of chunk.split("\n\n")) {
@@ -40,14 +95,16 @@ export default function Home() {
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState("");
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+
   const endRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const triggeredEasterEggs = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages, isStreaming]);
 
-  // Auto-resize dinámico para el textarea
   const handleTextareaInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInput(e.target.value);
     if (textareaRef.current) {
@@ -56,9 +113,19 @@ export default function Home() {
     }
   };
 
+  const copyToClipboard = async (text: string, index: number) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedIndex(index);
+      setTimeout(() => setCopiedIndex(null), 2000);
+    } catch {}
+  };
+
   const sendMessage = async (prompt?: string) => {
     const question = (prompt ?? input).trim();
     if (!question || isStreaming) return;
+
+    triggerEasterEgg(question, triggeredEasterEggs.current);
 
     const nextMessages = [...messages, { role: "user" as const, content: question }];
     setMessages([...nextMessages, { role: "assistant", content: "" }]);
@@ -87,8 +154,12 @@ export default function Home() {
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
+      let accumulatedResponse = "";
 
       const appendDelta = (delta: string) => {
+        accumulatedResponse += delta;
+        triggerEasterEgg(accumulatedResponse, triggeredEasterEggs.current);
+
         setMessages((current) =>
           current.map((msg, index) =>
             index === current.length - 1 ? { ...msg, content: msg.content + delta } : msg,
@@ -133,22 +204,39 @@ export default function Home() {
     if (isStreaming) return;
     setMessages([]);
     setError("");
+    triggeredEasterEggs.current.clear();
   };
 
   return (
-    <main className="relative flex min-h-dvh flex-col items-center justify-center p-2 sm:p-5 lg:p-7 selection:bg-[#d8c2b5]/50">
-      {/* Luces de ambiente etéreas */}
+    <main
+      className="relative flex min-h-dvh flex-col items-center justify-center p-2 sm:p-5 lg:p-7 selection:bg-[#d8c2b5]/50 transition-all duration-700"
+      style={{
+        background: isStreaming
+          ? "radial-gradient(ellipse at top, #fae6d8 0%, #f3dfd5 50%, #eae0d5 100%)"
+          : "radial-gradient(ellipse at top, #fbf7f2 0%, #f6eee5 50%, #ede3d8 100%)",
+      }}
+    >
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="absolute -top-[20%] -left-[10%] h-[550px] w-[550px] rounded-full bg-[#f2e6dc]/80 blur-[120px]" />
-        <div className="absolute top-[35%] -right-[15%] h-[500px] w-[500px] rounded-full bg-[#ebdcd6]/70 blur-[140px]" />
-        <div className="absolute -bottom-[20%] left-[20%] h-[600px] w-[600px] rounded-full bg-[#faefe8]/90 blur-[130px]" />
+        <div
+          className={`absolute -top-[15%] -left-[10%] h-[550px] w-[550px] rounded-full blur-[100px] transition-all duration-700 ${
+            isStreaming ? "scale-150 bg-[#ffcbb3]/90 opacity-100" : "scale-100 bg-[#f3e5d8]/70 opacity-60"
+          }`}
+        />
+        <div
+          className={`absolute top-[30%] -right-[15%] h-[520px] w-[520px] rounded-full blur-[110px] transition-all duration-700 ${
+            isStreaming ? "scale-150 bg-[#e3b8ff]/80 opacity-100" : "scale-100 bg-[#ebdcd6]/60 opacity-60"
+          }`}
+        />
       </div>
 
-      {/* Contenedor Principal */}
-      <section className="relative flex h-[94dvh] w-full max-w-5xl flex-col overflow-hidden rounded-[2.5rem] border border-white/70 bg-[#faf6f0]/75 shadow-[0_24px_60px_-15px_rgba(80,50,40,0.12)] backdrop-blur-2xl transition-all duration-300">
-        
-        {/* Header Glassmorphic */}
-        <header className="z-10 flex items-center justify-between border-b border-[#ebdcd0]/70 bg-white/40 px-6 py-4 backdrop-blur-md sm:px-9">
+      <section
+        className={`relative flex h-[94dvh] w-full max-w-5xl flex-col overflow-hidden rounded-[2.5rem] border backdrop-blur-2xl transition-all duration-500 ${
+          isStreaming
+            ? "border-[#d8a88a] bg-white/85 shadow-[0_0_40px_rgba(216,168,138,0.35)]"
+            : "border-white/70 bg-[#faf6f0]/75 shadow-[0_24px_60px_-15px_rgba(80,50,40,0.12)]"
+        }`}
+      >
+        <header className="z-10 flex items-center justify-between border-b border-[#ebdcd0]/70 bg-white/40 px-6 py-4 backdrop-blur-md sm:px-9 hover:border-[#cbb3a3] transition-colors">
           <div className="flex items-center gap-4">
             <div className="relative size-12 shrink-0 overflow-hidden rounded-full ring-2 ring-[#e8d5c8] shadow-inner transition-transform duration-300 hover:scale-105">
               <Image
@@ -171,15 +259,21 @@ export default function Home() {
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="hidden sm:flex items-center gap-2 rounded-full border border-[#e5d3c5] bg-white/70 px-3.5 py-1.5 text-xs font-medium text-[#6e584f] shadow-sm backdrop-blur-sm">
-              <span className="size-2 animate-pulse rounded-full bg-[#9c7866]" />
-              Conexión activa
+            <div
+              className={`hidden sm:flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs font-medium transition-all duration-300 ${
+                isStreaming
+                  ? "border-[#c49275] bg-[#fff5ee] text-[#844c27] shadow-sm"
+                  : "border-[#e5d3c5] bg-white/70 text-[#6e584f]"
+              }`}
+            >
+              <span className={`size-2 rounded-full ${isStreaming ? "animate-ping bg-[#c49275]" : "animate-pulse bg-[#9c7866]"}`} />
+              {isStreaming ? "Analizando y escribiendo..." : "Conexión activa"}
             </div>
             {messages.length > 0 && (
               <button
                 onClick={resetChat}
                 title="Reiniciar conversación"
-                className="grid size-9 place-items-center rounded-full border border-[#ebdcd0] bg-white/60 text-[#7c6960] transition hover:bg-white hover:text-[#342725] hover:shadow-sm"
+                className="grid size-9 place-items-center rounded-full border border-[#ebdcd0] bg-white/60 text-[#7c6960] transition hover:bg-white hover:text-[#342725] hover:shadow-sm hover:border-[#cbb3a3]"
               >
                 <RefreshCw size={15} />
               </button>
@@ -187,7 +281,6 @@ export default function Home() {
           </div>
         </header>
 
-        {/* Zona de Chat */}
         <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-8 sm:py-8 space-y-6">
           {messages.length === 0 ? (
             <div className="mx-auto flex max-w-2xl flex-col items-center justify-center py-6 text-center sm:py-12 animate-in fade-in zoom-in-95 duration-500">
@@ -197,11 +290,10 @@ export default function Home() {
               <h2 className="font-serif text-3xl sm:text-4xl text-[#362725] tracking-tight">
                 El mapa de sus ideas y matices.
               </h2>
-              <p className="mt-3.5 max-w-md text-sm leading-relaxed text-[#7c6960]">
+              <p className="mt-3.5 max-w-md text-sm leading-relaxed text-[#7c6960] font-light">
                 Un espacio interactivo para explorar sus proyectos profesionales, gustos estéticos y la perspectiva única con la que construye su mundo.
               </p>
 
-              {/* Tarjetas de Sugerencias */}
               <div className="mt-9 grid w-full gap-3 text-left sm:grid-cols-2">
                 {suggestions.map((suggestion) => (
                   <button
@@ -233,9 +325,8 @@ export default function Home() {
                 return (
                   <div
                     key={`${message.role}-${index}`}
-                    className={`flex items-start gap-3 ${isUser ? "flex-row-reverse" : "flex-row"} animate-in fade-in duration-300`}
+                    className={`group/msg relative flex items-start gap-3 ${isUser ? "flex-row-reverse" : "flex-row"} animate-in fade-in duration-300`}
                   >
-                    {/* Avatar de la burbuja */}
                     {isUser ? (
                       <div className="grid size-8 shrink-0 place-items-center rounded-full bg-[#4a3935] text-white text-xs shadow-sm">
                         <User size={15} />
@@ -252,31 +343,50 @@ export default function Home() {
                       </div>
                     )}
 
-                    {/* Contenido de la burbuja */}
                     <div
                       className={`relative max-w-[85%] rounded-[1.6rem] px-5 py-4 text-sm leading-relaxed transition-all ${
                         isUser
-                          ? "rounded-tr-xs bg-[#4a3935] text-[#f7efe9] shadow-md"
+                          ? "rounded-tr-xs bg-[#4a3935] text-[#f7efe9] shadow-md font-sans"
                           : "rounded-tl-xs border border-[#ebd8cc]/70 bg-white/80 text-[#3d2f2c] shadow-sm backdrop-blur-md"
                       }`}
                     >
                       {isUser ? (
                         <p className="whitespace-pre-wrap">{message.content}</p>
                       ) : message.content ? (
-                        <div className="prose prose-sm prose-stone max-w-none prose-p:leading-7 prose-li:my-1 prose-headings:font-serif prose-headings:font-normal prose-headings:text-[#362725] prose-strong:font-semibold prose-strong:text-[#422e2b]">
-                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                            {message.content}
-                          </ReactMarkdown>
-                          {isStreaming && index === messages.length - 1 && (
-                            <span className="inline-block size-2 animate-ping rounded-full bg-[#9c7866] ml-1.5 align-middle" />
-                          )}
-                        </div>
+                        <>
+                          <div className="prose prose-sm prose-stone max-w-none 
+                            prose-headings:font-serif prose-headings:font-medium prose-headings:text-[#1c1917] prose-headings:tracking-tight
+                            prose-p:font-serif prose-p:font-light prose-p:text-[#44403c] prose-p:leading-relaxed prose-p:mb-4
+                            prose-strong:font-semibold prose-strong:text-[#1c1917]
+                            prose-ul:list-disc prose-ul:marker:text-[#c49275] prose-ul:font-serif prose-ul:font-light
+                            prose-ol:list-decimal prose-ol:marker:text-[#c49275] prose-ol:font-serif prose-ol:font-light
+                            prose-li:my-1
+                          ">
+                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                              {message.content}
+                            </ReactMarkdown>
+                            {isStreaming && index === messages.length - 1 && (
+                              <span className="inline-block size-2 animate-ping rounded-full bg-[#c49275] ml-1.5 align-middle" />
+                            )}
+                          </div>
+
+                          <button
+                            onClick={() => copyToClipboard(message.content, index)}
+                            title="Copiar texto"
+                            className="absolute right-3 top-3 opacity-0 group-hover/msg:opacity-100 transition-opacity duration-200 rounded-lg border border-[#ebd8cc] bg-white/80 p-1.5 text-[#8c7b74] hover:bg-white hover:text-[#342725] hover:border-[#cbb3a3] shadow-xs"
+                          >
+                            {copiedIndex === index ? (
+                              <Check size={13} className="text-emerald-600 animate-in zoom-in-50 duration-150" />
+                            ) : (
+                              <Copy size={13} />
+                            )}
+                          </button>
+                        </>
                       ) : (
-                        /* Typing indicator animado */
                         <div className="flex items-center gap-1.5 py-1 px-1">
-                          <span className="size-2 rounded-full bg-[#9c7866]/60 animate-bounce [animation-delay:-0.3s]" />
-                          <span className="size-2 rounded-full bg-[#9c7866]/60 animate-bounce [animation-delay:-0.15s]" />
-                          <span className="size-2 rounded-full bg-[#9c7866]/60 animate-bounce" />
+                          <span className="size-2 rounded-full bg-[#c49275]/70 animate-bounce [animation-delay:-0.3s]" />
+                          <span className="size-2 rounded-full bg-[#c49275]/70 animate-bounce [animation-delay:-0.15s]" />
+                          <span className="size-2 rounded-full bg-[#c49275]/70 animate-bounce" />
                         </div>
                       )}
                     </div>
@@ -297,8 +407,7 @@ export default function Home() {
           )}
         </div>
 
-        {/* Input Bar Flotante */}
-        <footer className="border-t border-[#ebdcd0]/70 bg-white/40 p-4 sm:p-5 backdrop-blur-lg">
+        <footer className="border-t border-[#ebdcd0]/70 bg-white/40 p-4 sm:p-5 backdrop-blur-lg hover:border-[#cbb3a3] transition-colors">
           <form onSubmit={onSubmit} className="mx-auto max-w-3xl">
             <div className="relative flex items-end gap-2 rounded-2xl border border-[#ebd8cb] bg-white/90 p-2 shadow-[0_6px_20px_-6px_rgba(140,110,95,0.08)] transition-all focus-within:border-[#9c7866] focus-within:ring-4 focus-within:ring-[#9c7866]/10">
               <textarea
@@ -310,7 +419,7 @@ export default function Home() {
                 rows={1}
                 maxLength={2000}
                 placeholder="Pregúntale al biógrafo sobre Mireya..."
-                className="max-h-36 min-h-[42px] flex-1 resize-none bg-transparent px-3 py-2 text-sm leading-5 text-[#3d2f2c] placeholder:text-[#ab9c96] outline-none disabled:cursor-not-allowed"
+                className="max-h-36 min-h-[42px] flex-1 resize-none bg-transparent px-3 py-2 text-sm leading-5 text-[#3d2f2c] placeholder:text-[#ab9c96] outline-none disabled:cursor-not-allowed font-sans"
               />
               <button
                 type="submit"
