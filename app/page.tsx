@@ -383,10 +383,30 @@ export default function Home() {
                           </button>
                         </>
                       ) : (
-                        <div className="flex items-center gap-1.5 py-1 px-1">
-                          <span className="size-2 rounded-full bg-[#c49275]/70 animate-bounce [animation-delay:-0.3s]" />
-                          <span className="size-2 rounded-full bg-[#c49275]/70 animate-bounce [animation-delay:-0.15s]" />
-                          <span className="size-2 rounded-full bg-[#c49275]/70 animate-bounce" />
+                        /* Estado de Carga con Bibble Integrado */
+                        <div className="flex items-center gap-3 py-1 pr-2 animate-in fade-in zoom-in-95 duration-300">
+                          <div className="relative size-11 shrink-0 overflow-hidden rounded-2xl border border-[#e8d2c2] shadow-sm ring-2 ring-white/80">
+                            <Image
+                              src="/bibble.png"
+                              alt="Bibble pensando"
+                              fill
+                              sizes="44px"
+                              className="object-cover animate-pulse"
+                            />
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[11px] font-semibold uppercase tracking-wider text-[#9c7866]">
+                                Consultando archivos...
+                              </span>
+                              <Sparkles size={12} className="animate-spin text-[#c49275]" />
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <span className="size-1.5 rounded-full bg-[#c49275] animate-bounce [animation-delay:-0.3s]" />
+                              <span className="size-1.5 rounded-full bg-[#c49275] animate-bounce [animation-delay:-0.15s]" />
+                              <span className="size-1.5 rounded-full bg-[#c49275] animate-bounce" />
+                            </div>
+                          </div>
                         </div>
                       )}
                     </div>
