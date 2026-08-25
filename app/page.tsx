@@ -144,7 +144,7 @@ function MultimediaLink({ href, children, ...props }: ComponentProps<"a">) {
       );
     }
   } catch {
-    // Renderizado estándar para links relativos o genéricos
+    // Renderizado estándar
   }
 
   return (
@@ -167,7 +167,7 @@ export default function Home() {
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [isLoadingSession, setIsLoadingSession] = useState(true);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [memoryOpen, setMemoryOpen] = useState(false);
   const [memoryText, setMemoryText] = useState("");
   const [memoryStatus, setMemoryStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -175,6 +175,13 @@ export default function Home() {
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Inicializar sidebar abierto solo si es desktop
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.innerWidth >= 768) {
+      setSidebarOpen(true);
+    }
+  }, []);
 
   const request = async <T,>(path: string, options?: RequestInit): Promise<T> => {
     const response = await fetch(`/api/backend/${path}`, { cache: "no-store", ...options });
@@ -196,6 +203,9 @@ export default function Home() {
     if (isStreaming) return;
     setIsLoadingSession(true);
     setError("");
+    if (typeof window !== "undefined" && window.innerWidth < 768) {
+      setSidebarOpen(false);
+    }
     try {
       const data = await request<Message[]>(`sessions/${id}/messages`);
       setMessages(data);
@@ -211,6 +221,9 @@ export default function Home() {
     if (isStreaming) return;
     setIsLoadingSession(true);
     setError("");
+    if (typeof window !== "undefined" && window.innerWidth < 768) {
+      setSidebarOpen(false);
+    }
     try {
       const session = await request<Session>("sessions", {
         method: "POST",
@@ -373,10 +386,33 @@ export default function Home() {
 
   return (
     <main className="min-h-dvh bg-[radial-gradient(ellipse_at_top,#fff0f3_0%,#fae8eb_45%,#f5dbe2_100%)] p-2 sm:p-5 transition-colors duration-500">
-      <div className="mx-auto flex h-[94dvh] max-w-7xl overflow-hidden rounded-[2rem] border border-white/80 bg-[#fff5f7]/80 shadow-[0_24px_60px_-15px_rgba(180,90,120,.15)] backdrop-blur-2xl">
-        {/* SIDEBAR */}
-        <aside className={`${sidebarOpen ? "w-72 p-4" : "w-0 p-0"} relative shrink-0 overflow-hidden border-r border-[#f3d3dc]/80 bg-white/50 transition-all duration-300`}>
+      <div className="relative mx-auto flex h-[94dvh] max-w-7xl overflow-hidden rounded-[2rem] border border-white/80 bg-[#fff5f7]/80 shadow-[0_24px_60px_-15px_rgba(180,90,120,.15)] backdrop-blur-2xl">
+        
+        {/* BACKDROP OSCURO EN MÓVIL AL ABRIR SIDEBAR */}
+        {sidebarOpen && (
+          <div
+            onClick={() => setSidebarOpen(false)}
+            className="fixed inset-0 z-30 bg-[#381a24]/30 backdrop-blur-xs md:hidden"
+          />
+        )}
+
+        {/* SIDEBAR: DRAWER EN MÓVIL / INTEGRADO EN DESKTOP */}
+        <aside
+          className={`fixed inset-y-0 left-0 z-40 w-72 transform bg-[#fff8fa] p-4 shadow-2xl transition-transform duration-300 ease-in-out md:static md:z-auto md:h-full md:shadow-none md:transition-all ${
+            sidebarOpen ? "translate-x-0 md:w-72 md:p-4" : "-translate-x-full md:w-0 md:p-0 md:translate-x-0"
+          } shrink-0 overflow-hidden border-r border-[#f3d3dc]/80 md:bg-white/50`}
+        >
           <div className="flex h-full w-64 flex-col">
+            <div className="flex items-center justify-between pb-2 md:hidden">
+              <span className="font-serif text-sm font-semibold text-[#522b37]">Menú & Conversaciones</span>
+              <button
+                onClick={() => setSidebarOpen(false)}
+                className="rounded-full p-1.5 text-[#8f475a] hover:bg-[#fae6ec]"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
             <button
               onClick={() => void createSession()}
               disabled={isStreaming}
@@ -387,7 +423,10 @@ export default function Home() {
             </button>
 
             <button
-              onClick={() => setMemoryOpen(true)}
+              onClick={() => {
+                setMemoryOpen(true);
+                if (typeof window !== "undefined" && window.innerWidth < 768) setSidebarOpen(false);
+              }}
               className="mt-3 flex items-center justify-center gap-2 rounded-2xl border border-[#f0cad5] bg-[#fffafb]/90 px-4 py-2.5 text-sm text-[#733b4b] shadow-xs transition hover:bg-white"
             >
               <BrainCircuit size={16} className="text-[#a45d6f]" />
@@ -415,14 +454,14 @@ export default function Home() {
                       <button
                         onClick={() => void renameSession(session)}
                         aria-label="Renombrar"
-                        className="hidden rounded p-1.5 text-[#9e6776] hover:bg-white group-hover:block"
+                        className="rounded p-1.5 text-[#9e6776] hover:bg-white md:hidden md:group-hover:block"
                       >
                         <Pencil size={12} />
                       </button>
                       <button
                         onClick={() => void deleteSession(session)}
                         aria-label="Eliminar"
-                        className="hidden rounded p-1.5 text-[#be4d69] hover:bg-white group-hover:block"
+                        className="rounded p-1.5 text-[#be4d69] hover:bg-white md:hidden md:group-hover:block"
                       >
                         <Trash2 size={12} />
                       </button>
@@ -441,7 +480,7 @@ export default function Home() {
         {/* CHAT SECTION */}
         <section className="relative flex min-w-0 flex-1 flex-col">
           {/* HEADER */}
-          <header className="flex items-center justify-between border-b border-[#f3d3dc]/80 bg-white/40 px-5 py-4 sm:px-7">
+          <header className="flex items-center justify-between border-b border-[#f3d3dc]/80 bg-white/40 px-4 py-3 sm:px-7 sm:py-4">
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -451,15 +490,15 @@ export default function Home() {
                 {sidebarOpen ? <ChevronLeft size={19} /> : <Menu size={19} />}
               </button>
 
-              <div className="relative size-10 overflow-hidden rounded-full ring-2 ring-[#f0cad5] shadow-xs">
+              <div className="relative size-9 sm:size-10 overflow-hidden rounded-full ring-2 ring-[#f0cad5] shadow-xs">
                 <Image src="/mireya.jpg" alt="Mireya" fill sizes="40px" className="object-cover" priority />
               </div>
 
               <div>
-                <h1 className="font-serif text-xl tracking-wide text-[#421f2b]">
+                <h1 className="font-serif text-lg sm:text-xl tracking-wide text-[#421f2b]">
                   Mireya <span className="font-sans text-[10px] font-semibold uppercase tracking-[.2em] text-[#a45d6f]">AI</span>
                 </h1>
-                <p className="text-[10px] uppercase tracking-wider text-[#9e6776]">Biografía viva & mapa de identidad</p>
+                <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-[#9e6776]">Biografía viva & mapa de identidad</p>
               </div>
             </div>
 
@@ -484,53 +523,53 @@ export default function Home() {
                 </div>
               </div>
             ) : messages.length === 0 ? (
-              <div className="mx-auto flex max-w-2xl flex-col items-center py-10 text-center sm:py-16">
-                <div className="mb-6 grid size-16 place-items-center rounded-2xl border border-[#f3d3dc] bg-white/80 text-[#a45d6f] shadow-sm">
-                  <BookOpenText size={30} strokeWidth={1.4} />
+              <div className="mx-auto flex max-w-2xl flex-col items-center py-6 text-center sm:py-16">
+                <div className="mb-4 sm:mb-6 grid size-14 sm:size-16 place-items-center rounded-2xl border border-[#f3d3dc] bg-white/80 text-[#a45d6f] shadow-sm">
+                  <BookOpenText size={26} strokeWidth={1.4} />
                 </div>
-                <h2 className="font-serif text-3xl text-[#421f2b]">El mapa de sus ideas y matices.</h2>
-                <p className="mt-3 max-w-md text-sm leading-relaxed text-[#733b4b]">
+                <h2 className="font-serif text-2xl sm:text-3xl text-[#421f2b]">El mapa de sus ideas y matices.</h2>
+                <p className="mt-2 sm:mt-3 max-w-md text-xs sm:text-sm leading-relaxed text-[#733b4b]">
                   Explora proyectos, gustos, anécdotas y recuerdos de Mireya.
                 </p>
 
-                <div className="mt-9 grid w-full gap-3 text-left sm:grid-cols-2">
+                <div className="mt-6 sm:mt-9 grid w-full gap-2.5 text-left sm:grid-cols-2">
                   {suggestions.map((suggestion) => (
                     <button
                       key={suggestion.label}
                       onClick={() => void sendMessage(suggestion.label)}
-                      className="rounded-2xl border border-[#f3d3dc] bg-white/70 p-4 text-left shadow-xs transition hover:-translate-y-0.5 hover:bg-white hover:border-[#e9b5c2]"
+                      className="rounded-2xl border border-[#f3d3dc] bg-white/70 p-3.5 sm:p-4 text-left shadow-xs transition hover:-translate-y-0.5 hover:bg-white hover:border-[#e9b5c2]"
                     >
                       <span className="mr-2">{suggestion.icon}</span>
                       <span className="text-xs font-semibold text-[#a45d6f]">{suggestion.title}</span>
-                      <p className="mt-1 text-sm text-[#4a2e35]">{suggestion.label}</p>
+                      <p className="mt-1 text-xs sm:text-sm text-[#4a2e35]">{suggestion.label}</p>
                     </button>
                   ))}
                 </div>
               </div>
             ) : (
-              <div className="mx-auto flex max-w-3xl flex-col gap-6">
+              <div className="mx-auto flex max-w-3xl flex-col gap-5 sm:gap-6">
                 {messages.map((message, index) => (
                   <div
                     key={message.id ?? `${message.role}-${index}`}
-                    className={`flex items-start gap-3 ${message.role === "user" ? "flex-row-reverse" : ""}`}
+                    className={`flex items-start gap-2.5 sm:gap-3 ${message.role === "user" ? "flex-row-reverse" : ""}`}
                   >
                     <div
-                      className={`grid size-8 shrink-0 place-items-center overflow-hidden rounded-full ${
+                      className={`grid size-7 sm:size-8 shrink-0 place-items-center overflow-hidden rounded-full ${
                         message.role === "user" ? "bg-[#522b37] text-white" : "ring-1 ring-[#f0cad5]"
                       }`}
                     >
                       {message.role === "user" ? (
-                        <User size={15} />
+                        <User size={13} />
                       ) : (
                         <Image src="/mireya.jpg" alt="Mireya" width={32} height={32} className="object-cover" />
                       )}
                     </div>
 
                     <div
-                      className={`group relative max-w-[85%] rounded-[1.5rem] px-5 py-4 text-sm leading-relaxed ${
+                      className={`group relative max-w-[88%] sm:max-w-[85%] rounded-[1.3rem] sm:rounded-[1.5rem] px-4 py-3 sm:px-5 sm:py-4 text-xs sm:text-sm leading-relaxed ${
                         message.role === "user"
-                          ? "rounded-tr-sm bg-[#522b37] text-[#fff0f3] shadow-xs"
-                          : "rounded-tl-sm border border-[#f3d3dc] bg-white/85 text-[#42222b] shadow-xs"
+                          ? "rounded-tr-xs bg-[#522b37] text-[#fff0f3] shadow-xs"
+                          : "rounded-tl-xs border border-[#f3d3dc] bg-white/85 text-[#42222b] shadow-xs"
                       }`}
                     >
                       {message.role === "user" ? (
@@ -554,11 +593,11 @@ export default function Home() {
                           </button>
                         </>
                       ) : (
-                        <div className="flex items-center gap-3 py-1">
-                          <div className="relative size-9 overflow-hidden rounded-xl border border-[#f3d3dc] shadow-sm">
+                        <div className="flex items-center gap-2.5 py-0.5 sm:py-1">
+                          <div className="relative size-8 sm:size-9 overflow-hidden rounded-xl border border-[#f3d3dc] shadow-sm">
                             <Image src="/bibble.png" alt="Bibble pensando" fill sizes="36px" className="object-cover animate-pulse" />
                           </div>
-                          <span className="text-xs font-medium text-[#a45d6f] animate-pulse">
+                          <span className="text-[11px] sm:text-xs font-medium text-[#a45d6f] animate-pulse">
                             Bibble está consultando recuerdos…
                           </span>
                         </div>
@@ -570,18 +609,18 @@ export default function Home() {
               </div>
             )}
 
-            {/* TARJETA DE ERROR CON BIBBLE EN SHOCK */}
+            {/* TARJETA DE ERROR CON BIBBLE */}
             {error && (
-              <div className="mx-auto mt-6 max-w-lg overflow-hidden rounded-3xl border border-[#f5b8c7] bg-white/95 p-5 shadow-lg animate-in fade-in zoom-in-95">
-                <div className="flex items-center gap-4">
-                  <div className="relative size-14 shrink-0 overflow-hidden rounded-2xl border border-[#f3cad5] shadow-xs">
+              <div className="mx-auto mt-4 sm:mt-6 max-w-lg overflow-hidden rounded-2xl sm:rounded-3xl border border-[#f5b8c7] bg-white/95 p-4 sm:p-5 shadow-lg animate-in fade-in zoom-in-95">
+                <div className="flex items-center gap-3.5">
+                  <div className="relative size-12 sm:size-14 shrink-0 overflow-hidden rounded-2xl border border-[#f3cad5] shadow-xs">
                     <Image src="/bibble_error.png" alt="Bibble en shock" fill sizes="56px" className="object-cover animate-bounce" />
                   </div>
                   <div className="flex-1">
-                    <h2 className="font-serif text-base font-semibold text-[#6e2236]">
+                    <h2 className="font-serif text-sm sm:text-base font-semibold text-[#6e2236]">
                       ¡Bibble se quedó sin aliento!
                     </h2>
-                    <p className="mt-0.5 text-xs text-[#8f475a] leading-relaxed">
+                    <p className="mt-0.5 text-[11px] sm:text-xs text-[#8f475a] leading-relaxed">
                       {error.includes("503") || error.includes("429") || error.includes("demand")
                         ? "Hubo un pico de demanda en los servidores de IA. Dale un segundo a Bibble para respirar y volvemos."
                         : error}
@@ -594,9 +633,9 @@ export default function Home() {
                       setError("");
                       void sendMessage();
                     }}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-[#522b37] px-3.5 py-1.5 text-xs font-medium text-white shadow-xs transition hover:bg-[#3d1d27]"
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-[#522b37] px-3 py-1.5 text-xs font-medium text-white shadow-xs transition hover:bg-[#3d1d27]"
                   >
-                    <RefreshCw size={13} /> Reintentar
+                    <RefreshCw size={12} /> Reintentar
                   </button>
                 </div>
               </div>
@@ -604,7 +643,7 @@ export default function Home() {
           </div>
 
           {/* INPUT BAR */}
-          <footer className="border-t border-[#f3d3dc]/80 bg-white/40 p-4">
+          <footer className="border-t border-[#f3d3dc]/80 bg-white/40 p-3 sm:p-4">
             <form
               onSubmit={(event: FormEvent) => {
                 event.preventDefault();
@@ -612,7 +651,7 @@ export default function Home() {
               }}
               className="mx-auto max-w-3xl"
             >
-              <div className="flex items-end gap-2 rounded-2xl border border-[#f3d3dc] bg-white/95 p-2 shadow-xs focus-within:border-[#e5aab8] focus-within:ring-4 focus-within:ring-[#f5dbe2]/60 transition">
+              <div className="flex items-end gap-2 rounded-2xl border border-[#f3d3dc] bg-white/95 p-1.5 sm:p-2 shadow-xs focus-within:border-[#e5aab8] focus-within:ring-4 focus-within:ring-[#f5dbe2]/60 transition">
                 <textarea
                   ref={textareaRef}
                   value={input}
@@ -626,14 +665,14 @@ export default function Home() {
                   rows={1}
                   maxLength={2000}
                   placeholder="Pregúntale al biógrafo sobre Mireya..."
-                  className="max-h-36 min-h-[42px] flex-1 resize-none bg-transparent px-3 py-2 text-sm text-[#42222b] placeholder-[#b07d8d] outline-none"
+                  className="max-h-36 min-h-[38px] sm:min-h-[42px] flex-1 resize-none bg-transparent px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm text-[#42222b] placeholder-[#b07d8d] outline-none"
                 />
                 <button
                   type="submit"
                   disabled={!input.trim() || isStreaming || !currentSessionId}
-                  className="grid size-10 place-items-center rounded-xl bg-[#522b37] text-[#fff0f3] transition hover:bg-[#3d1d27] disabled:bg-[#edd0d7] disabled:text-white"
+                  className="grid size-9 sm:size-10 place-items-center rounded-xl bg-[#522b37] text-[#fff0f3] transition hover:bg-[#3d1d27] disabled:bg-[#edd0d7] disabled:text-white"
                 >
-                  {isStreaming ? <Sparkles size={17} className="animate-spin" /> : <ArrowUp size={18} />}
+                  {isStreaming ? <Sparkles size={16} className="animate-spin" /> : <ArrowUp size={16} />}
                 </button>
               </div>
             </form>
@@ -643,12 +682,12 @@ export default function Home() {
 
       {/* MODAL NUEVO RECUERDO */}
       {memoryOpen && (
-        <div className="fixed inset-0 z-20 grid place-items-center bg-[#381a24]/30 p-4 backdrop-blur-sm animate-in fade-in">
-          <div className="w-full max-w-lg rounded-3xl border border-white/90 bg-[#fff8fa] p-6 shadow-2xl">
+        <div className="fixed inset-0 z-50 grid place-items-center bg-[#381a24]/30 p-4 backdrop-blur-sm animate-in fade-in">
+          <div className="w-full max-w-lg rounded-3xl border border-white/90 bg-[#fff8fa] p-5 sm:p-6 shadow-2xl">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="font-serif text-2xl text-[#421f2b]">Nuevo recuerdo</h2>
-                <p className="mt-1 text-sm text-[#733b4b]">Se guardará y estará disponible para futuras conversaciones.</p>
+                <h2 className="font-serif text-xl sm:text-2xl text-[#421f2b]">Nuevo recuerdo</h2>
+                <p className="mt-0.5 sm:mt-1 text-xs sm:text-sm text-[#733b4b]">Se guardará y estará disponible para futuras conversaciones.</p>
               </div>
               <button onClick={() => setMemoryOpen(false)} className="rounded-full p-2 text-[#8f475a] hover:bg-[#fae6ec]">
                 <X size={18} />
@@ -662,13 +701,13 @@ export default function Home() {
                 setMemoryStatus("idle");
               }}
               maxLength={10000}
-              rows={7}
+              rows={6}
               placeholder="Escribe un recuerdo, una anécdota, un gusto, el link de tus canciones favoritas o un dato importante…"
-              className="mt-5 w-full resize-none rounded-2xl border border-[#f0cad5] bg-white p-4 text-sm text-[#42222b] outline-none focus:border-[#a45d6f] focus:ring-4 focus:ring-[#fae6ec]"
+              className="mt-4 sm:mt-5 w-full resize-none rounded-2xl border border-[#f0cad5] bg-white p-3.5 sm:p-4 text-xs sm:text-sm text-[#42222b] outline-none focus:border-[#a45d6f] focus:ring-4 focus:ring-[#fae6ec]"
             />
 
             <div className="mt-4 flex items-center justify-between">
-              <span className={`text-xs ${memoryStatus === "error" ? "text-rose-600" : "text-[#9e6776]"}`}>
+              <span className={`text-[11px] sm:text-xs ${memoryStatus === "error" ? "text-rose-600" : "text-[#9e6776]"}`}>
                 {memoryStatus === "saving"
                   ? "Guardando en el mapa de recuerdos…"
                   : memoryStatus === "saved"
@@ -680,7 +719,7 @@ export default function Home() {
               <button
                 onClick={() => void saveMemory()}
                 disabled={!memoryText.trim() || memoryStatus === "saving"}
-                className="rounded-xl bg-[#522b37] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#3d1d27] disabled:bg-[#edd0d7]"
+                className="rounded-xl bg-[#522b37] px-3.5 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm font-medium text-white transition hover:bg-[#3d1d27] disabled:bg-[#edd0d7]"
               >
                 {memoryStatus === "saving" ? "Guardando…" : "Guardar recuerdo"}
               </button>
