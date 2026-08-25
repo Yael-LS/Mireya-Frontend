@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, KeyboardEvent, useEffect, useRef, useState } from "react";
+import type { ComponentProps, ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { ArrowUp, BookOpenText, BrainCircuit, Check, ChevronLeft, Copy, Menu, MessageCircle, Pencil, Plus, Trash2, User, X } from "lucide-react";
@@ -37,6 +38,70 @@ function groupLabel(date: string) {
   if (days === 1) return "Ayer";
   if (days <= 7) return "Hace una semana";
   return "Anteriores";
+}
+
+function textFromChildren(children: ReactNode): string {
+  if (typeof children === "string" || typeof children === "number") return String(children);
+  if (Array.isArray(children)) return children.map(textFromChildren).join("");
+  return "";
+}
+
+function spotifyEmbedUrl(url: URL): { src: string; height: number } | null {
+  if (!url.hostname.endsWith("spotify.com")) return null;
+  const parts = url.pathname.split("/").filter(Boolean);
+  if (parts[0]?.startsWith("intl-")) parts.shift();
+  const [kind, id] = parts;
+  if (!id || !["track", "album", "playlist"].includes(kind)) return null;
+  return { src: `https://open.spotify.com/embed/${kind}/${id}`, height: kind === "track" ? 80 : 152 };
+}
+
+function youtubeEmbedUrl(url: URL): string | null {
+  const host = url.hostname.replace(/^www\./, "");
+  let id = "";
+  if (host === "youtu.be") id = url.pathname.split("/").filter(Boolean)[0] ?? "";
+  if (host === "youtube.com") {
+    id = url.searchParams.get("v") ?? "";
+    if (!id) id = url.pathname.match(/^\/(?:shorts|embed)\/([^/?]+)/)?.[1] ?? "";
+  }
+  return id ? `https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}` : null;
+}
+
+function streamingPlatform(hostname: string) {
+  const host = hostname.replace(/^www\./, "").toLowerCase();
+  if (host.includes("netflix.com")) return "Netflix";
+  if (host.includes("crunchyroll.com")) return "Crunchyroll";
+  if (host === "max.com" || host.endsWith("max.com")) return "Max";
+  if (host.includes("primevideo.com") || host.includes("amazon.com")) return "Prime Video";
+  if (host.includes("disneyplus.com")) return "Disney+";
+  if (host.includes("hulu.com")) return "Hulu";
+  return null;
+}
+
+function MultimediaLink({ href, children, ...props }: ComponentProps<"a">) {
+  const label = textFromChildren(children).trim() || "Abrir enlace";
+  if (!href) return <a {...props} className="text-[#8b6250] underline decoration-[#cbb3a3] underline-offset-2">{children}</a>;
+
+  try {
+    const url = new URL(href);
+    const spotify = spotifyEmbedUrl(url);
+    if (spotify) {
+      return <span className="my-3 block not-prose"><iframe src={spotify.src} title={`Spotify: ${label}`} width="100%" height={spotify.height} loading="lazy" className="rounded-2xl border-0 shadow-sm" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" /></span>;
+    }
+
+    const youtube = youtubeEmbedUrl(url);
+    if (youtube) {
+      return <span className="my-3 block not-prose overflow-hidden rounded-2xl border border-[#ebd8cc] bg-[#fffaf6] shadow-sm"><iframe src={youtube} title={`YouTube: ${label}`} width="100%" height="190" loading="lazy" className="block border-0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowFullScreen /></span>;
+    }
+
+    const platform = streamingPlatform(url.hostname);
+    if (platform) {
+      return <span className="my-3 block not-prose rounded-2xl border border-[#e7d4c7] bg-[#fffaf6]/90 p-3.5 shadow-sm"><span className="flex items-center justify-between gap-3"><span className="min-w-0"><span className="mb-1 inline-block rounded-full bg-[#eadbd1] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[.12em] text-[#895f4e]">{platform}</span><span className="block truncate font-serif text-sm font-medium text-[#45332e]">{label}</span></span><a href={href} target="_blank" rel="noopener noreferrer" className="shrink-0 rounded-xl border border-[#dfc9bc] bg-white px-3 py-2 text-xs font-medium text-[#6e584f] no-underline transition hover:bg-[#f8eee8]">Ver en {platform}</a></span></span>;
+    }
+  } catch {
+    // El renderizador genérico conserva enlaces Markdown relativos o inválidos.
+  }
+
+  return <a href={href} target="_blank" rel="noopener noreferrer" {...props} className="font-medium text-[#8b6250] underline decoration-[#cbb3a3] decoration-1 underline-offset-2 transition hover:text-[#5d4035]">{children}</a>;
 }
 
 export default function Home() {
@@ -256,7 +321,7 @@ export default function Home() {
                       ) : message.content ? (
                         <>
                           <div className="prose prose-sm prose-stone">
-                            <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
+                            <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ a: MultimediaLink }}>{message.content}</ReactMarkdown>
                           </div>
                           <button onClick={() => { void navigator.clipboard.writeText(message.content); setCopiedIndex(index); setTimeout(() => setCopiedIndex(null), 1500); }} className="absolute right-2 top-2 hidden rounded bg-white p-1 text-[#8c7b74] shadow group-hover:block">
                             {copiedIndex === index ? <Check size={13} className="text-emerald-600" /> : <Copy size={13} />}
