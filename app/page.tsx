@@ -4,7 +4,23 @@ import { FormEvent, KeyboardEvent, useEffect, useRef, useState } from "react";
 import type { ComponentProps, ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { ArrowUp, BookOpenText, BrainCircuit, Check, ChevronLeft, Copy, Menu, MessageCircle, Pencil, Plus, RefreshCw, Sparkles, Trash2, User, X } from "lucide-react";
+import {
+  ArrowUp,
+  BookOpenText,
+  BrainCircuit,
+  Check,
+  ChevronLeft,
+  Copy,
+  Menu,
+  MessageCircle,
+  Pencil,
+  Plus,
+  RefreshCw,
+  Sparkles,
+  Trash2,
+  User,
+  X,
+} from "lucide-react";
 import Image from "next/image";
 import confetti from "canvas-confetti";
 
@@ -20,7 +36,11 @@ const suggestions = [
 
 function parseSse(chunk: string, onDelta: (delta: string) => void) {
   for (const block of chunk.split("\n\n")) {
-    const data = block.split("\n").filter((line) => line.startsWith("data: ")).map((line) => line.slice(6)).join("\n");
+    const data = block
+      .split("\n")
+      .filter((line) => line.startsWith("data: "))
+      .map((line) => line.slice(6))
+      .join("\n");
     if (!data) continue;
     try {
       const event = JSON.parse(data);
@@ -144,7 +164,7 @@ function MultimediaLink({ href, children, ...props }: ComponentProps<"a">) {
       );
     }
   } catch {
-    // Renderizado estándar
+    // Renderizado estándar si la URL falla
   }
 
   return (
@@ -176,7 +196,6 @@ export default function Home() {
   const endRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Inicializar sidebar abierto solo si es desktop
   useEffect(() => {
     if (typeof window !== "undefined" && window.innerWidth >= 768) {
       setSidebarOpen(true);
@@ -396,7 +415,7 @@ export default function Home() {
           />
         )}
 
-        {/* SIDEBAR: DRAWER EN MÓVIL / INTEGRADO EN DESKTOP */}
+        {/* SIDEBAR */}
         <aside
           className={`fixed inset-y-0 left-0 z-40 w-72 transform bg-[#fff8fa] p-4 shadow-2xl transition-transform duration-300 ease-in-out md:static md:z-auto md:h-full md:shadow-none md:transition-all ${
             sidebarOpen ? "translate-x-0 md:w-72 md:p-4" : "-translate-x-full md:w-0 md:p-0 md:translate-x-0"
@@ -517,7 +536,7 @@ export default function Home() {
               <div className="grid h-full place-items-center text-sm text-[#9e6776]">
                 <div className="flex items-center gap-3">
                   <div className="relative size-10 overflow-hidden rounded-2xl border border-[#f3d3dc] shadow-sm">
-                    <Image src="/bibble.png" alt="Bibble pensando" fill sizes="40px" className="object-cover animate-pulse" />
+                    <Image src="/bibble_cargando.jpeg" alt="Bibble pensando" fill sizes="40px" className="object-cover animate-pulse" />
                   </div>
                   <span>Cargando conversación…</span>
                 </div>
@@ -527,8 +546,8 @@ export default function Home() {
                 <div className="mb-4 sm:mb-6 grid size-14 sm:size-16 place-items-center rounded-2xl border border-[#f3d3dc] bg-white/80 text-[#a45d6f] shadow-sm">
                   <BookOpenText size={26} strokeWidth={1.4} />
                 </div>
-                <h2 className="font-serif text-2xl sm:text-3xl text-[#421f2b]">El mapa de sus ideas y matices.</h2>
-                <p className="mt-2 sm:mt-3 max-w-md text-xs sm:text-sm leading-relaxed text-[#733b4b]">
+                <h2 className="font-serif text-2xl sm:text-3xl text-[#421f2b]">Un universo por conocer.</h2>
+                <p className="mt-2 sm:mt-3 max-w-md text-xs sm:text-sm leading-relaxed text-[#733b4b] font-light">
                   Explora proyectos, gustos, anécdotas y recuerdos de Mireya.
                 </p>
 
@@ -568,7 +587,7 @@ export default function Home() {
                     <div
                       className={`group relative max-w-[88%] sm:max-w-[85%] rounded-[1.3rem] sm:rounded-[1.5rem] px-4 py-3 sm:px-5 sm:py-4 text-xs sm:text-sm leading-relaxed ${
                         message.role === "user"
-                          ? "rounded-tr-xs bg-[#522b37] text-[#fff0f3] shadow-xs"
+                          ? "rounded-tr-xs bg-[#522b37] text-[#fff0f3] shadow-xs font-sans"
                           : "rounded-tl-xs border border-[#f3d3dc] bg-white/85 text-[#42222b] shadow-xs"
                       }`}
                     >
@@ -576,7 +595,14 @@ export default function Home() {
                         <p className="whitespace-pre-wrap">{message.content}</p>
                       ) : message.content ? (
                         <>
-                          <div className="prose prose-sm prose-pink max-w-none text-[#42222b]">
+                          <div className="prose prose-sm prose-pink max-w-none 
+                            prose-headings:font-serif prose-headings:font-medium prose-headings:text-[#421f2b] prose-headings:tracking-tight
+                            prose-p:font-serif prose-p:font-light prose-p:text-[#42222b] prose-p:leading-relaxed prose-p:mb-4
+                            prose-strong:font-semibold prose-strong:text-[#421f2b]
+                            prose-ul:list-disc prose-ul:marker:text-[#c47185] prose-ul:font-serif prose-ul:font-light
+                            prose-ol:list-decimal prose-ol:marker:text-[#c47185] prose-ol:font-serif prose-ol:font-light
+                            prose-li:my-1
+                          ">
                             <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ a: MultimediaLink }}>
                               {message.content}
                             </ReactMarkdown>
@@ -597,7 +623,7 @@ export default function Home() {
                           <div className="relative size-8 sm:size-9 overflow-hidden rounded-xl border border-[#f3d3dc] shadow-sm">
                             <Image src="/bibble.png" alt="Bibble pensando" fill sizes="36px" className="object-cover animate-pulse" />
                           </div>
-                          <span className="text-[11px] sm:text-xs font-medium text-[#a45d6f] animate-pulse">
+                          <span className="text-[11px] sm:text-xs font-medium text-[#a45d6f] animate-pulse font-serif">
                             Bibble está consultando recuerdos…
                           </span>
                         </div>
@@ -614,7 +640,7 @@ export default function Home() {
               <div className="mx-auto mt-4 sm:mt-6 max-w-lg overflow-hidden rounded-2xl sm:rounded-3xl border border-[#f5b8c7] bg-white/95 p-4 sm:p-5 shadow-lg animate-in fade-in zoom-in-95">
                 <div className="flex items-center gap-3.5">
                   <div className="relative size-12 sm:size-14 shrink-0 overflow-hidden rounded-2xl border border-[#f3cad5] shadow-xs">
-                    <Image src="/bibble_error.png" alt="Bibble en shock" fill sizes="56px" className="object-cover animate-bounce" />
+                    <Image src="/bibble_error.png" alt="Bibble en shock" fill sizes="56px" className="object-cover" />
                   </div>
                   <div className="flex-1">
                     <h2 className="font-serif text-sm sm:text-base font-semibold text-[#6e2236]">
@@ -665,7 +691,7 @@ export default function Home() {
                   rows={1}
                   maxLength={2000}
                   placeholder="Pregúntale al biógrafo sobre Mireya..."
-                  className="max-h-36 min-h-[38px] sm:min-h-[42px] flex-1 resize-none bg-transparent px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm text-[#42222b] placeholder-[#b07d8d] outline-none"
+                  className="max-h-36 min-h-[38px] sm:min-h-[42px] flex-1 resize-none bg-transparent px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm text-[#42222b] placeholder-[#b07d8d] outline-none font-sans"
                 />
                 <button
                   type="submit"
