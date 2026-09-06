@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import confetti from "canvas-confetti";
+import Swal from "sweetalert2";
 
 type Message = { id?: string; role: "user" | "assistant"; content: string; created_at?: string };
 type Session = { id: string; title: string; created_at: string; updated_at: string };
@@ -341,8 +342,31 @@ export default function Home() {
   };
 
   const renameSession = async (session: Session) => {
-    const title = window.prompt("Nuevo nombre de la conversación:", session.title)?.trim();
-    if (!title) return;
+    const result = await Swal.fire({
+      title: "Renombrar conversación",
+      input: "text",
+      inputValue: session.title,
+      inputPlaceholder: "Escribe el nuevo nombre...",
+      showCancelButton: true,
+      confirmButtonText: "Guardar",
+      cancelButtonText: "Cancelar",
+      background: "#fff8fa",
+      color: "#421f2b",
+      backdrop: "rgba(56, 26, 36, 0.35)",
+      customClass: {
+        popup: "rounded-3xl border border-[#f0cad5] shadow-2xl p-6 font-sans",
+        title: "font-serif text-xl sm:text-2xl text-[#421f2b] tracking-wide",
+        input: "!rounded-2xl !border !border-[#f0cad5] !bg-white !px-3.5 !py-2.5 !text-sm !text-[#42222b] !shadow-xs focus:!border-[#a45d6f] focus:!ring-4 focus:!ring-[#fae6ec] !outline-none",
+        confirmButton: "!rounded-xl !bg-[#522b37] !px-4 !py-2.5 !text-xs sm:!text-sm !font-medium !text-[#fff0f3] hover:!bg-[#3d1d27] !transition !shadow-sm",
+        cancelButton: "!rounded-xl !border !border-[#f0cad5] !bg-white !px-4 !py-2.5 !text-xs sm:!text-sm !font-medium !text-[#733b4b] hover:!bg-[#faebef] !transition !shadow-xs",
+        actions: "gap-2.5",
+      },
+      buttonsStyling: false,
+    });
+
+    const title = result.value?.trim();
+    if (!result.isConfirmed || !title) return;
+
     try {
       const updated = await request<Session>(`sessions/${session.id}`, {
         method: "PATCH",
@@ -356,7 +380,32 @@ export default function Home() {
   };
 
   const deleteSession = async (session: Session) => {
-    if (!window.confirm(`¿Eliminar “${session.title}”? Esta acción no se puede deshacer.`)) return;
+    const result = await Swal.fire({
+      title: "¿Eliminar conversación?",
+      html: `<span class="text-xs sm:text-sm text-[#733b4b] leading-relaxed">¿Deseas eliminar <b>“${session.title}”</b>? Esta acción no se puede deshacer.</span>`,
+      imageUrl: "/bibble_asustado.jpeg",
+      imageWidth: 80,
+      imageHeight: 80,
+      imageAlt: "Bibble asustado",
+      showCancelButton: true,
+      confirmButtonText: "Eliminar",
+      cancelButtonText: "Cancelar",
+      background: "#fff8fa",
+      color: "#421f2b",
+      backdrop: "rgba(56, 26, 36, 0.35)",
+      customClass: {
+        popup: "rounded-3xl border border-[#f0cad5] shadow-2xl p-6 font-sans",
+        title: "font-serif text-xl sm:text-2xl text-[#421f2b] tracking-wide",
+        image: "rounded-2xl object-cover border border-[#f3cad5] shadow-xs my-2",
+        confirmButton: "!rounded-xl !bg-[#be4d69] !px-4 !py-2.5 !text-xs sm:!text-sm !font-medium !text-white hover:!bg-[#9e3b52] !transition !shadow-sm",
+        cancelButton: "!rounded-xl !border !border-[#f0cad5] !bg-white !px-4 !py-2.5 !text-xs sm:!text-sm !font-medium !text-[#733b4b] hover:!bg-[#faebef] !transition !shadow-xs",
+        actions: "gap-2.5",
+      },
+      buttonsStyling: false,
+    });
+
+    if (!result.isConfirmed) return;
+
     try {
       await request<void>(`sessions/${session.id}`, { method: "DELETE" });
       const remaining = sessions.filter((item) => item.id !== session.id);
