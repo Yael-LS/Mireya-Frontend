@@ -119,20 +119,22 @@ const DESKTOP_SLOTS: Slot[] = [
   desk("bibble", "heart", 300, 850, 80, 0, "far"),
 ];
 
+// El chat queda al centro con franjas de 56px arriba y abajo: arriba se asoman
+// los stickers, abajo la frase, y el resto se ve a través del panel de vidrio.
 const MOBILE_SLOTS: Slot[] = [
-  mob("bibble", "heart", 6, "14px", 84, -6, "near"),
-  mob("taylor", "stamp", 96, "6px", 64, 6, "near"),
-  mob("dino", "polaroid", 172, "16px", 86, 5, "near"),
-  mob("hortensia", "flower", 298, "4px", 80, 0, "near"),
-  mob("bungo", "circle", 300, "98px", 62, 0, "mid"),
-  mob("bibble", "arch", 66, "94px", 52, -4, "mid"),
-  mob("taylor", "stamp", -8, "106px", 54, -8, "mid"),
+  mob("bibble", "heart", 4, "-14px", 70, -6, "near"),
+  mob("taylor", "stamp", 86, "-22px", 54, 6, "near"),
+  mob("dino", "polaroid", 160, "-38px", 74, 5, "near"),
+  mob("hortensia", "flower", 306, "-14px", 70, 0, "near"),
+  mob("bungo", "circle", 250, "22px", 50, 0, "mid"),
+  mob("bibble", "arch", 58, "34px", 44, -4, "mid"),
+  mob("taylor", "stamp", -10, "44px", 48, -8, "mid"),
   mob("hortensia", "heart", -34, "36%", 80, 0, "far"),
   mob("dino", "circle", 344, "40%", 76, 0, "far"),
   mob("hortensia", "flower", -30, "60%", 84, 0, "far"),
   mob("bungo", "stamp", 340, "64%", 70, 0, "far"),
-  mob("bungo", "heart", -24, "84%", 76, 0, "far"),
-  mob("bibble", "arch", 334, "86%", 70, 0, "far"),
+  mob("bungo", "heart", -16, "calc(100% - 64px)", 70, -8, "near"),
+  mob("bibble", "arch", 330, "calc(100% - 70px)", 62, 6, "near"),
 ];
 
 const DESKTOP_LYRIC_SLOTS: LyricSlot[] = [
@@ -142,7 +144,7 @@ const DESKTOP_LYRIC_SLOTS: LyricSlot[] = [
   { right: "24px", top: "60%", rotate: -3 },
 ];
 
-const MOBILE_LYRIC_SLOTS: LyricSlot[] = [{ left: pct((124 / 390) * 100), top: "118px", rotate: -3 }];
+const MOBILE_LYRIC_SLOTS: LyricSlot[] = [{ left: pct((70 / 390) * 100), top: "calc(100% - 52px)", rotate: -2 }];
 
 function shuffle<T>(items: T[]): T[] {
   const copy = [...items];

@@ -23,6 +23,11 @@ body::before { content: ""; position: fixed; inset: 0; z-index: 0; pointer-event
 .glass-panel { background: linear-gradient(140deg, rgba(255, 250, 252, .42), rgba(255, 232, 240, .26) 55%, rgba(255, 246, 249, .36)); border: 1px solid rgba(255, 255, 255, .75);
   -webkit-backdrop-filter: blur(14px) saturate(1.35); backdrop-filter: blur(14px) saturate(1.35);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, .95), inset 0 0 0 1px rgba(255, 255, 255, .2), 0 30px 70px -22px rgba(150, 60, 90, .45); }
+/* En celular hay poco espacio: el vidrio es más claro para que el collage luzca detrás */
+@media (max-width: 767px) {
+  .glass-panel { background: linear-gradient(140deg, rgba(255, 250, 252, .24), rgba(255, 232, 240, .12) 55%, rgba(255, 246, 249, .2));
+    -webkit-backdrop-filter: blur(7px) saturate(1.3); backdrop-filter: blur(7px) saturate(1.3); }
+}
 .panel-tape { position: absolute; z-index: 20; width: 96px; height: 26px; pointer-events: none; background: repeating-linear-gradient(45deg, rgba(255, 255, 255, .55) 0 6px, rgba(255, 255, 255, .2) 6px 12px), rgba(240, 160, 185, .7); box-shadow: 0 2px 4px rgba(122, 44, 67, .18); }
 /* ---------- Burbujas de mensajes ---------- */
 .bubble-in { animation: bubble-in .45s cubic-bezier(.2, .8, .3, 1) both; }
@@ -100,9 +105,9 @@ body::before { content: ""; position: fixed; inset: 0; z-index: 0; pointer-event
 .scrapbook-desktop .lyric-slip { max-width: max(150px, calc((100vw - 1080px) / 2 - 44px)); }
 .lyric-text { margin: 0; font-family: var(--font-caveat), cursive; font-weight: 600; font-size: clamp(19px, 1.55vw, 27px); line-height: 1.05; color: #5c2338; }
 .lyric-source { margin: 6px 0 0; font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8a4a5c; }
-.scrapbook-mobile .lyric-slip { padding: 10px 14px 8px; }
-.scrapbook-mobile .lyric-text { font-size: 20px; }
-.scrapbook-mobile .lyric-source { font-size: 9px; }
+.scrapbook-mobile .lyric-slip { padding: 8px 12px 6px; }
+.scrapbook-mobile .lyric-text { font-size: 18px; white-space: nowrap; }
+.scrapbook-mobile .lyric-source { margin-top: 3px; font-size: 8.5px; white-space: nowrap; }
 
 /* ---------- Telón de bienvenida ---------- */
 .curtain-stage { position: fixed; inset: 0; z-index: 100; overflow: hidden; }

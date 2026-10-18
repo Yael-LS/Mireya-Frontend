@@ -418,11 +418,9 @@ export default function RefugioPage() {
       </div>
 
       <footer className="relative z-10 mx-auto mt-10 flex max-w-6xl flex-col gap-2 px-4 sm:px-8">
-        <div className="flex flex-col gap-2 rounded-[1.5rem] border border-white bg-white/55 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-[13.5px] leading-relaxed text-[#5c2338]">
-            Si lo que sientes pesa demasiado, no tienes que cargarlo sola. <strong>Línea de la Vida: 800 911 2000</strong> · gratuita, 24 horas.
-          </p>
-          <p className="shrink-0 font-hand text-xl text-[#b8456a]">aquí siempre hay lugar para ti</p>
+        <div className="flex flex-col items-center gap-1 rounded-[1.5rem] border border-white bg-white/55 px-5 py-5 text-center">
+          <p className="text-[14px] leading-relaxed text-[#5c2338]">Si lo que sientes pesa demasiado, no tienes que cargarlo sola.</p>
+          <p className="font-hand text-[22px] text-[#b8456a]">aquí siempre hay lugar para ti</p>
         </div>
       </footer>
 

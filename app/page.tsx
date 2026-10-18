@@ -559,7 +559,7 @@ export default function Home() {
   }, {});
 
   return (
-    <main className="relative isolate min-h-dvh px-2 pb-2 pt-44 md:p-5">
+    <main className="relative isolate min-h-dvh px-2 py-14 md:p-5">
       <ScrapbookBackground revealed={revealed} />
       <WelcomeCurtain onUnlock={unlock} onOpen={reveal} />
 
@@ -571,7 +571,7 @@ export default function Home() {
       >
       <span aria-hidden="true" className="panel-tape -top-3 left-8 -rotate-6 sm:left-14" />
       <span aria-hidden="true" className="panel-tape -top-3 right-8 rotate-[5deg] sm:right-14" />
-      <div className="glass-panel relative flex h-[calc(100dvh-11.5rem)] overflow-hidden rounded-[2rem] md:h-[94dvh]">
+      <div className="glass-panel relative flex h-[calc(100dvh-7rem)] overflow-hidden rounded-[2rem] md:h-[94dvh]">
 
         {/* BACKDROP OSCURO EN MÓVIL AL ABRIR SIDEBAR */}
         {sidebarOpen && (
@@ -689,11 +689,11 @@ export default function Home() {
         {/* CHAT SECTION */}
         <section className="relative flex min-w-0 flex-1 flex-col">
           {/* HEADER */}
-          <header className="flex items-center justify-between border-b border-white/60 bg-white/15 px-4 py-3 sm:px-7 sm:py-4">
-            <div className="flex items-center gap-3">
+          <header className="flex items-center justify-between gap-2 border-b border-white/60 bg-white/15 px-3 py-3 sm:px-7 sm:py-4">
+            <div className="flex min-w-0 items-center gap-2 sm:gap-3">
               <button
                 onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="grid size-10 place-items-center rounded-full border border-white/80 bg-white/45 text-[#733b4b] backdrop-blur-sm transition hover:bg-white/75"
+                className="grid size-9 shrink-0 place-items-center rounded-full border border-white/80 bg-white/45 text-[#733b4b] backdrop-blur-sm transition hover:bg-white/75 sm:size-10"
                 aria-label="Alternar historial"
               >
                 {sidebarOpen ? <ChevronLeft size={18} /> : <Menu size={18} />}
@@ -702,7 +702,7 @@ export default function Home() {
               <button
                 type="button"
                 onClick={() => setAvatarOpen(true)}
-                className="avatar-edit relative size-10 shrink-0 overflow-hidden rounded-full shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(240,202,213,.9)] sm:size-11"
+                className="avatar-edit relative size-9 shrink-0 overflow-hidden rounded-full shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(240,202,213,.9)] sm:size-11"
                 aria-label="Cambiar foto de perfil"
                 title="Cambiar foto"
               >
@@ -714,17 +714,17 @@ export default function Home() {
               </button>
 
               <div>
-                <h1 className="font-display text-2xl font-semibold leading-none text-[#421f2b]">
+                <h1 className="whitespace-nowrap font-display text-xl font-semibold leading-none text-[#421f2b] sm:text-2xl">
                   Mireya <span className="font-sans text-[10px] font-semibold uppercase tracking-[.2em] text-[#be4d69]">AI</span>
                 </h1>
-                <p className="mt-0.5 font-hand text-base leading-none text-[#9e3b56] sm:text-lg">su biografía viva</p>
+                <p className="mt-0.5 whitespace-nowrap font-hand text-[15px] leading-none text-[#9e3b56] sm:text-lg">su biografía viva</p>
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
               <Link
                 href="/refugio"
-                className="grid size-10 place-items-center rounded-full border border-white/80 bg-white/45 text-[#d9567a] backdrop-blur-sm transition hover:bg-white/75"
+                className="grid size-9 place-items-center rounded-full border border-white/80 bg-white/45 text-[#d9567a] backdrop-blur-sm transition hover:bg-white/75 sm:size-10"
                 aria-label="Ir a El Refugio"
                 title="El Refugio"
               >
@@ -732,7 +732,7 @@ export default function Home() {
               </Link>
               <button
                 onClick={() => setMemoryOpen(true)}
-                className="grid size-10 place-items-center rounded-full border border-white/80 bg-white/45 text-[#be4d69] backdrop-blur-sm transition hover:bg-white/75"
+                className="grid size-9 place-items-center rounded-full border border-white/80 bg-white/45 text-[#be4d69] backdrop-blur-sm transition hover:bg-white/75 sm:size-10"
                 aria-label="Guardar recuerdo"
                 title="Guardar recuerdo"
               >
