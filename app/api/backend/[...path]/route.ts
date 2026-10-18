@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { isUnlocked, lockedResponse } from "../../../lib/unlock";
 
 export const runtime = "edge";
 
@@ -8,6 +9,7 @@ function backendUrl(path: string[]) {
 }
 
 async function proxy(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
+  if (!(await isUnlocked(request))) return lockedResponse();
   const { path } = await context.params;
   const apiKey = process.env.SERVICE_API_KEY ?? process.env.API_KEY;
   const hasBody = !["GET", "HEAD"].includes(request.method);

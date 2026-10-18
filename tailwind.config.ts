@@ -5,8 +5,9 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        display: ["var(--font-newsreader)", "Georgia", "serif"],
-        sans: ["var(--font-geist)", "Arial", "sans-serif"],
+        display: ["var(--font-cormorant)", "Georgia", "serif"],
+        hand: ["var(--font-caveat)", "cursive"],
+        sans: ["var(--font-figtree)", "Arial", "sans-serif"],
       },
       colors: {
         parchment: "#f7f1e8",

@@ -1,18 +1,23 @@
 "use client";
 
-import { FormEvent, KeyboardEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, KeyboardEvent, useCallback, useEffect, useRef, useState } from "react";
 import type { ComponentProps, ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
   ArrowUp,
-  BookOpenText,
   BrainCircuit,
+  Camera,
   Check,
   ChevronLeft,
   Copy,
+  Flower2,
+  GraduationCap,
+  Heart,
+  Lightbulb,
   Menu,
   MessageCircle,
+  Music,
   Pencil,
   Plus,
   RefreshCw,
@@ -22,20 +27,40 @@ import {
   X,
 } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 import confetti from "canvas-confetti";
 import Swal from "sweetalert2";
+import AvatarPicker, { DEFAULT_AVATAR } from "./components/AvatarPicker";
+import IdeasBox from "./components/IdeasBox";
+import ScrapbookBackground from "./components/ScrapbookBackground";
+import TulipIcon from "./components/TulipIcon";
+import WelcomeCurtain from "./components/WelcomeCurtain";
+import { KIND_LABELS, RECALL_KEY } from "./components/refugio-types";
+import type { RecallMoment, RefugioItem, RefugioSuggestion } from "./components/refugio-types";
 
-type Message = { id?: string; role: "user" | "assistant"; content: string; created_at?: string };
+type Message = { id?: string; role: "user" | "assistant"; content: string; created_at?: string; hearted?: boolean };
+type StreamEvent = { type: string; delta?: string; message?: string; user_message_id?: string; message_id?: string | null };
 type Session = { id: string; title: string; created_at: string; updated_at: string };
+type IngestResult = { refugio?: RefugioItem[]; refugio_suggestions?: RefugioSuggestion[] };
+
+function takeRecallMoment(): RecallMoment | null {
+  try {
+    const raw = sessionStorage.getItem(RECALL_KEY);
+    sessionStorage.removeItem(RECALL_KEY);
+    return raw ? (JSON.parse(raw) as RecallMoment) : null;
+  } catch {
+    return null;
+  }
+}
 
 const suggestions = [
-  { icon: "🎵", title: "Música & Melancolía", label: "¿Cuál es su relación con Taylor Swift y Radiohead?" },
-  { icon: "🧠", title: "Psicología & Negocios", label: "Cuéntame sobre sus proyectos en Psicología y ALTHEA." },
-  { icon: "🌸", title: "Cultura Pop & K-dramas", label: "¿Qué opina sobre Bibble y los K-dramas?" },
-  { icon: "✨", title: "Estética & Cuidado", label: "¿Cuáles son sus fijaciones estéticas y de skincare?" },
+  { icon: Music, title: "Su top de Taylor", label: "¿Cuáles son sus canciones favoritas de Taylor Swift y por qué?" },
+  { icon: GraduationCap, title: "Momentos felices", label: "Cuéntame del día de su graduación." },
+  { icon: Heart, title: "Su corazón", label: "¿Qué hace de Mireya una persona tan especial?" },
+  { icon: Flower2, title: "Días grises", label: "¿Qué cosas la hacen sonreír en un día gris?" },
 ];
 
-function parseSse(chunk: string, onDelta: (delta: string) => void) {
+function parseSse(chunk: string, onDelta: (delta: string) => void, onEvent?: (event: StreamEvent) => void) {
   for (const block of chunk.split("\n\n")) {
     const data = block
       .split("\n")
@@ -44,8 +69,9 @@ function parseSse(chunk: string, onDelta: (delta: string) => void) {
       .join("\n");
     if (!data) continue;
     try {
-      const event = JSON.parse(data);
-      if (event.type === "response.output_text.delta") onDelta(event.delta);
+      const event: StreamEvent = JSON.parse(data);
+      onEvent?.(event);
+      if (event.type === "response.output_text.delta") onDelta(event.delta ?? "");
       if (event.type === "error") throw new Error(event.message ?? "El agente no pudo responder.");
     } catch (error) {
       if (error instanceof Error && error.message !== "Unexpected end of JSON input") throw error;
@@ -194,6 +220,16 @@ export default function Home() {
   const [memoryStatus, setMemoryStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [error, setError] = useState("");
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const [revealed, setRevealed] = useState(false);
+  const reveal = useCallback(() => setRevealed(true), []);
+  const [ideasOpen, setIdeasOpen] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState(DEFAULT_AVATAR);
+  const [avatarOpen, setAvatarOpen] = useState(false);
+  const [poppedHeart, setPoppedHeart] = useState<string | null>(null);
+  const [unlocked, setUnlocked] = useState(false);
+  const unlock = useCallback(() => setUnlocked(true), []);
+  const [refugioAdded, setRefugioAdded] = useState<RefugioItem[]>([]);
+  const [refugioSuggestions, setRefugioSuggestions] = useState<RefugioSuggestion[]>([]);
   const endRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -237,7 +273,7 @@ export default function Home() {
     }
   };
 
-  const createSession = async () => {
+  const createSession = async (options: { title?: string; mode?: "normal" | "nostalgia" } = {}) => {
     if (isStreaming) return;
     setIsLoadingSession(true);
     setError("");
@@ -248,7 +284,7 @@ export default function Home() {
       const session = await request<Session>("sessions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
+        body: JSON.stringify(options),
       });
       setSessions((current) => [session, ...current]);
       setMessages([]);
@@ -262,17 +298,27 @@ export default function Home() {
   };
 
   useEffect(() => {
+    if (!unlocked) return;
+    request<{ url: string | null }>("profile/photo")
+      .then(({ url }) => url && setAvatarUrl(url))
+      .catch(() => null);
     void (async () => {
       try {
         const data = await loadSessions();
-        if (data[0]) await loadSession(data[0].id);
+        // Viene de un momento del Refugio: charla nueva en modo nostalgia,
+        // con el mensaje escrito pero sin enviar para que ella decida.
+        const recall = takeRecallMoment();
+        if (recall) {
+          await createSession({ title: `Recordando: ${recall.title}`.slice(0, 100), mode: "nostalgia" });
+          setInput(`Cuéntame otra vez de ${recall.title}…`);
+        } else if (data[0]) await loadSession(data[0].id);
         else await createSession();
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : "No se pudo conectar con el historial.");
         setIsLoadingSession(false);
       }
     })();
-  }, []);
+  }, [unlocked]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -320,16 +366,28 @@ export default function Home() {
           )
         );
 
+      // El servidor manda los ids de ambos mensajes para poder reaccionarles con corazón.
+      const assignIds = (event: StreamEvent) => {
+        if (event.type === "response.created" && event.user_message_id) {
+          const id = event.user_message_id;
+          setMessages((current) => current.map((message, index) => (index === current.length - 2 ? { ...message, id } : message)));
+        }
+        if (event.type === "response.completed" && event.message_id) {
+          const id = event.message_id;
+          setMessages((current) => current.map((message, index) => (index === current.length - 1 ? { ...message, id } : message)));
+        }
+      };
+
       while (true) {
         const { done, value } = await reader.read();
         buffer += decoder.decode(value, { stream: !done });
         const events = buffer.split("\n\n");
         buffer = events.pop() ?? "";
-        events.forEach((event) => parseSse(event, appendDelta));
+        events.forEach((event) => parseSse(event, appendDelta, assignIds));
         if (done) break;
       }
 
-      if (buffer.trim()) parseSse(buffer, appendDelta);
+      if (buffer.trim()) parseSse(buffer, appendDelta, assignIds);
       void loadSessions();
     } catch (cause) {
       const msg = cause instanceof Error ? cause.message : "Ocurrió un pequeño imprevisto con la memoria.";
@@ -338,6 +396,24 @@ export default function Home() {
     } finally {
       setIsStreaming(false);
       textareaRef.current?.focus();
+    }
+  };
+
+  const toggleHeart = async (message: Message) => {
+    if (!message.id || !currentSessionId) return;
+    const hearted = !message.hearted;
+    const setHearted = (value: boolean) =>
+      setMessages((current) => current.map((item) => (item.id === message.id ? { ...item, hearted: value } : item)));
+    setHearted(hearted);
+    if (hearted) setPoppedHeart(message.id);
+    try {
+      await request(`sessions/${currentSessionId}/messages/${message.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ hearted }),
+      });
+    } catch {
+      setHearted(!hearted);
     }
   };
 
@@ -423,19 +499,49 @@ export default function Home() {
     if (!memoryText.trim() || memoryStatus === "saving") return;
     setMemoryStatus("saving");
     try {
-      await request("ingest", {
+      const result = await request<IngestResult>("ingest", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: memoryText }),
       });
       setMemoryText("");
       setMemoryStatus("saved");
-      setTimeout(() => {
-        setMemoryStatus("idle");
-        setMemoryOpen(false);
-      }, 1100);
+      const added = result.refugio ?? [];
+      const suggestions = result.refugio_suggestions ?? [];
+      setRefugioAdded(added);
+      setRefugioSuggestions(suggestions);
+      // Si nada llegó al Refugio, el modal se cierra solo como antes.
+      if (!added.length && !suggestions.length) setTimeout(closeMemory, 1100);
     } catch {
       setMemoryStatus("error");
+    }
+  };
+
+  const closeMemory = () => {
+    setMemoryOpen(false);
+    setMemoryStatus("idle");
+    setRefugioAdded([]);
+    setRefugioSuggestions([]);
+  };
+
+  const undoRefugio = async () => {
+    const items = refugioAdded;
+    setRefugioAdded([]);
+    await Promise.all(items.map((item) => request(`refugio/items/${item.id}`, { method: "DELETE" }).catch(() => null)));
+  };
+
+  const answerSuggestion = async (suggestion: RefugioSuggestion, keep: boolean) => {
+    setRefugioSuggestions((current) => current.filter((item) => item !== suggestion));
+    if (!keep) return;
+    try {
+      const created = await request<RefugioItem>("refugio/items", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(suggestion),
+      });
+      setRefugioAdded((current) => [...current, created]);
+    } catch {
+      // Si ya existía (409) no hay nada que avisar.
     }
   };
 
@@ -453,29 +559,41 @@ export default function Home() {
   }, {});
 
   return (
-    <main className="min-h-dvh bg-[radial-gradient(ellipse_at_top,#fff0f3_0%,#fae8eb_45%,#f5dbe2_100%)] p-2 sm:p-5 transition-colors duration-500">
-      <div className="relative mx-auto flex h-[94dvh] max-w-7xl overflow-hidden rounded-[2rem] border border-white/80 bg-[#fff5f7]/80 shadow-[0_24px_60px_-15px_rgba(180,90,120,.15)] backdrop-blur-2xl">
-        
+    <main className="relative isolate min-h-dvh px-2 pb-2 pt-44 md:p-5">
+      <ScrapbookBackground revealed={revealed} />
+      <WelcomeCurtain onUnlock={unlock} onOpen={reveal} />
+
+      {/* En celular el collage ocupa la banda superior; en escritorio rodea el panel */}
+      <div
+        className={`relative z-10 mx-auto max-w-[1080px] transition duration-700 delay-700 ${
+          revealed ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"
+        }`}
+      >
+      <span aria-hidden="true" className="panel-tape -top-3 left-8 -rotate-6 sm:left-14" />
+      <span aria-hidden="true" className="panel-tape -top-3 right-8 rotate-[5deg] sm:right-14" />
+      <div className="glass-panel relative flex h-[calc(100dvh-11.5rem)] overflow-hidden rounded-[2rem] md:h-[94dvh]">
+
         {/* BACKDROP OSCURO EN MÓVIL AL ABRIR SIDEBAR */}
         {sidebarOpen && (
           <div
             onClick={() => setSidebarOpen(false)}
-            className="fixed inset-0 z-30 bg-[#381a24]/30 backdrop-blur-xs md:hidden"
+            className="fixed inset-0 z-30 bg-[#381a24]/20 backdrop-blur-[2px] md:hidden"
           />
         )}
 
         {/* SIDEBAR */}
         <aside
-          className={`fixed inset-y-0 left-0 z-40 w-72 transform bg-[#fff8fa] p-4 shadow-2xl transition-transform duration-300 ease-in-out md:static md:z-auto md:h-full md:shadow-none md:transition-all ${
+          className={`fixed inset-y-0 left-0 z-40 w-72 transform bg-[#fff4f7]/75 p-4 shadow-2xl backdrop-blur-xl transition-transform duration-300 ease-in-out md:static md:z-auto md:h-full md:bg-white/20 md:shadow-none md:backdrop-blur-none md:transition-all ${
             sidebarOpen ? "translate-x-0 md:w-72 md:p-4" : "-translate-x-full md:w-0 md:p-0 md:translate-x-0"
-          } shrink-0 overflow-hidden border-r border-[#f3d3dc]/80 md:bg-white/50`}
+          } shrink-0 overflow-hidden border-r border-white/60`}
         >
           <div className="flex h-full w-64 flex-col">
-            <div className="flex items-center justify-between pb-2 md:hidden">
-              <span className="font-serif text-sm font-semibold text-[#522b37]">Menú & Conversaciones</span>
+            <div className="flex items-center justify-between px-1 pb-3">
+              <span className="font-hand text-2xl leading-none text-[#9e3b56]">mis conversaciones</span>
               <button
                 onClick={() => setSidebarOpen(false)}
-                className="rounded-full p-1.5 text-[#8f475a] hover:bg-[#fae6ec]"
+                aria-label="Cerrar historial"
+                className="rounded-full p-1.5 text-[#8f475a] hover:bg-white/60 md:hidden"
               >
                 <X size={18} />
               </button>
@@ -484,7 +602,7 @@ export default function Home() {
             <button
               onClick={() => void createSession()}
               disabled={isStreaming}
-              className="flex items-center justify-center gap-2 rounded-2xl bg-[#522b37] px-4 py-3 text-sm font-medium text-[#fff0f3] shadow-sm transition hover:bg-[#3d1d27] disabled:opacity-50"
+              className="flex items-center justify-center gap-2 rounded-full bg-[#522b37] px-4 py-3 text-sm font-medium text-[#fff0f3] shadow-[0_10px_20px_-10px_rgba(82,43,55,.8)] transition hover:-translate-y-0.5 hover:bg-[#3d1d27] disabled:opacity-50"
             >
               <Plus size={17} />
               Nueva conversación
@@ -495,41 +613,64 @@ export default function Home() {
                 setMemoryOpen(true);
                 if (typeof window !== "undefined" && window.innerWidth < 768) setSidebarOpen(false);
               }}
-              className="mt-3 flex items-center justify-center gap-2 rounded-2xl border border-[#f0cad5] bg-[#fffafb]/90 px-4 py-2.5 text-sm text-[#733b4b] shadow-xs transition hover:bg-white"
+              className="mt-2.5 flex items-center justify-center gap-2 rounded-full border border-white/80 bg-white/45 px-4 py-2.5 text-sm text-[#733b4b] backdrop-blur-sm transition hover:bg-white/75"
             >
-              <BrainCircuit size={16} className="text-[#a45d6f]" />
+              <BrainCircuit size={16} className="text-[#be4d69]" />
               Guardar recuerdo
             </button>
 
-            <div className="mt-6 flex-1 overflow-y-auto pr-1">
+            <Link
+              href="/refugio"
+              className="mt-2.5 flex items-center justify-center gap-2 rounded-full border border-white/80 bg-[#fbe1e9]/60 px-4 py-2.5 text-sm text-[#7a2c43] backdrop-blur-sm transition hover:bg-[#fbe1e9]/90"
+            >
+              <TulipIcon size={17} className="text-[#d9567a]" />
+              El Refugio
+            </Link>
+
+            <button
+              onClick={() => {
+                setIdeasOpen(true);
+                if (typeof window !== "undefined" && window.innerWidth < 768) setSidebarOpen(false);
+              }}
+              className="mt-2.5 flex items-center justify-center gap-2 rounded-full border border-white/80 bg-[#fff8f1]/70 px-4 py-2.5 text-sm text-[#7a2c43] backdrop-blur-sm transition hover:bg-[#fff8f1]"
+            >
+              <Lightbulb size={16} className="text-[#d9567a]" />
+              Caja de ideas
+            </button>
+
+            <div className="scrollbar-soft mt-5 flex-1 overflow-y-auto pr-1">
               {Object.entries(grouped).map(([label, items]) => (
-                <div key={label} className="mb-5">
-                  <p className="px-2 pb-2 text-[10px] font-semibold uppercase tracking-[.18em] text-[#a45d6f]">{label}</p>
+                <div key={label} className="mb-4">
+                  <p className="px-2 pb-1 font-hand text-lg lowercase text-[#be4d69]">{label}</p>
                   {items.map((session) => (
                     <div
                       key={session.id}
-                      className={`group mb-1 flex items-center gap-1 rounded-xl p-1 transition ${
-                        session.id === currentSessionId ? "bg-[#f5dbe2]/90 shadow-xs" : "hover:bg-white/70"
+                      className={`group mb-1 flex items-center gap-1 rounded-2xl p-1 transition ${
+                        session.id === currentSessionId
+                          ? "bg-white/75 shadow-[0_6px_16px_-10px_rgba(122,44,67,.6)]"
+                          : "hover:bg-white/45"
                       }`}
                     >
                       <button
                         onClick={() => void loadSession(session.id)}
-                        className="min-w-0 flex-1 truncate px-2 py-2 text-left text-xs text-[#522b37]"
+                        className="min-w-0 flex-1 truncate px-2 py-2 text-left text-[13px] text-[#4a2230]"
                       >
-                        <MessageCircle className="mr-2 inline size-3.5 text-[#a45d6f]" />
+                        <MessageCircle
+                          className={`mr-2 inline size-3.5 ${session.id === currentSessionId ? "text-[#be4d69]" : "text-[#c98a9b]"}`}
+                        />
                         {session.title}
                       </button>
                       <button
                         onClick={() => void renameSession(session)}
                         aria-label="Renombrar"
-                        className="rounded p-1.5 text-[#9e6776] hover:bg-white md:hidden md:group-hover:block"
+                        className="rounded-full p-1.5 text-[#9e6776] hover:bg-white md:hidden md:group-hover:block"
                       >
                         <Pencil size={12} />
                       </button>
                       <button
                         onClick={() => void deleteSession(session)}
                         aria-label="Eliminar"
-                        className="rounded p-1.5 text-[#be4d69] hover:bg-white md:hidden md:group-hover:block"
+                        className="rounded-full p-1.5 text-[#be4d69] hover:bg-white md:hidden md:group-hover:block"
                       >
                         <Trash2 size={12} />
                       </button>
@@ -539,7 +680,7 @@ export default function Home() {
               ))}
             </div>
 
-            <p className="px-2 text-[10px] leading-relaxed text-[#b07d8d]">
+            <p className="border-t border-white/60 px-2 pt-3 text-[10px] leading-relaxed text-[#8a4a5c]">
               Las conversaciones son privadas y el biógrafo solo consulta el contexto relevante.
             </p>
           </div>
@@ -548,35 +689,56 @@ export default function Home() {
         {/* CHAT SECTION */}
         <section className="relative flex min-w-0 flex-1 flex-col">
           {/* HEADER */}
-          <header className="flex items-center justify-between border-b border-[#f3d3dc]/80 bg-white/40 px-4 py-3 sm:px-7 sm:py-4">
+          <header className="flex items-center justify-between border-b border-white/60 bg-white/15 px-4 py-3 sm:px-7 sm:py-4">
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="rounded-lg p-2 text-[#733b4b] hover:bg-white/80"
+                className="grid size-10 place-items-center rounded-full border border-white/80 bg-white/45 text-[#733b4b] backdrop-blur-sm transition hover:bg-white/75"
                 aria-label="Alternar historial"
               >
-                {sidebarOpen ? <ChevronLeft size={19} /> : <Menu size={19} />}
+                {sidebarOpen ? <ChevronLeft size={18} /> : <Menu size={18} />}
               </button>
 
-              <div className="relative size-9 sm:size-10 overflow-hidden rounded-full ring-2 ring-[#f0cad5] shadow-xs">
-                <Image src="/mireya.jpg" alt="Mireya" fill sizes="40px" className="object-cover" priority />
-              </div>
+              <button
+                type="button"
+                onClick={() => setAvatarOpen(true)}
+                className="avatar-edit relative size-10 shrink-0 overflow-hidden rounded-full shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(240,202,213,.9)] sm:size-11"
+                aria-label="Cambiar foto de perfil"
+                title="Cambiar foto"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={avatarUrl} alt="Mireya" className="h-full w-full object-cover" />
+                <span aria-hidden="true" className="avatar-edit-overlay">
+                  <Camera size={15} />
+                </span>
+              </button>
 
               <div>
-                <h1 className="font-serif text-lg sm:text-xl tracking-wide text-[#421f2b]">
-                  Mireya <span className="font-sans text-[10px] font-semibold uppercase tracking-[.2em] text-[#a45d6f]">AI</span>
+                <h1 className="font-display text-2xl font-semibold leading-none text-[#421f2b]">
+                  Mireya <span className="font-sans text-[10px] font-semibold uppercase tracking-[.2em] text-[#be4d69]">AI</span>
                 </h1>
-                <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-[#9e6776]">Biografía viva & mapa de identidad</p>
+                <p className="mt-0.5 font-hand text-base leading-none text-[#9e3b56] sm:text-lg">su biografía viva</p>
               </div>
             </div>
 
-            <button
-              onClick={() => setMemoryOpen(true)}
-              className="rounded-full border border-[#f0cad5] bg-white/80 p-2 text-[#a45d6f] shadow-xs hover:bg-white"
-              title="Nuevo recuerdo"
-            >
-              <BrainCircuit size={17} />
-            </button>
+            <div className="flex items-center gap-2">
+              <Link
+                href="/refugio"
+                className="grid size-10 place-items-center rounded-full border border-white/80 bg-white/45 text-[#d9567a] backdrop-blur-sm transition hover:bg-white/75"
+                aria-label="Ir a El Refugio"
+                title="El Refugio"
+              >
+                <TulipIcon size={19} />
+              </Link>
+              <button
+                onClick={() => setMemoryOpen(true)}
+                className="grid size-10 place-items-center rounded-full border border-white/80 bg-white/45 text-[#be4d69] backdrop-blur-sm transition hover:bg-white/75"
+                aria-label="Guardar recuerdo"
+                title="Guardar recuerdo"
+              >
+                <BrainCircuit size={17} />
+              </button>
+            </div>
           </header>
 
           {/* MAIN MESSAGES AREA */}
@@ -591,25 +753,25 @@ export default function Home() {
                 </div>
               </div>
             ) : messages.length === 0 ? (
-              <div className="mx-auto flex max-w-2xl flex-col items-center py-6 text-center sm:py-16">
-                <div className="mb-4 sm:mb-6 grid size-14 sm:size-16 place-items-center rounded-2xl border border-[#f3d3dc] bg-white/80 text-[#a45d6f] shadow-sm">
-                  <BookOpenText size={26} strokeWidth={1.4} />
-                </div>
-                <h2 className="font-serif text-2xl sm:text-3xl text-[#421f2b]">Un universo por conocer.</h2>
-                <p className="mt-2 sm:mt-3 max-w-md text-xs sm:text-sm leading-relaxed text-[#733b4b] font-light">
-                  Explora proyectos, gustos, anécdotas y recuerdos de Mireya.
+              <div className="mx-auto flex max-w-2xl flex-col items-center py-4 text-center sm:py-12">
+                <p className="font-hand text-xl text-[#be4d69] sm:text-2xl">bienvenida al scrapbook de</p>
+                <h2 className="font-display text-5xl font-medium italic leading-[.95] text-[#421f2b] sm:text-6xl">Mireya</h2>
+                <p className="mt-3 max-w-md text-sm leading-relaxed text-[#6e3a4a] sm:mt-4 sm:text-[15px]">
+                  Pregúntale a su biógrafo por su música, sus proyectos o sus fijaciones favoritas.
                 </p>
 
-                <div className="mt-6 sm:mt-9 grid w-full gap-2.5 text-left sm:grid-cols-2">
+                <div className="mt-6 grid w-full gap-2.5 text-left sm:mt-9 sm:grid-cols-2 sm:gap-3">
                   {suggestions.map((suggestion) => (
                     <button
                       key={suggestion.label}
                       onClick={() => void sendMessage(suggestion.label)}
-                      className="rounded-2xl border border-[#f3d3dc] bg-white/70 p-3.5 sm:p-4 text-left shadow-xs transition hover:-translate-y-0.5 hover:bg-white hover:border-[#e9b5c2]"
+                      className="flex items-start gap-3 rounded-[1.25rem] border border-white/80 bg-white/50 p-3.5 text-left shadow-[0_8px_20px_-14px_rgba(122,44,67,.6)] backdrop-blur-sm transition hover:-translate-y-0.5 hover:bg-white/80 sm:p-4"
                     >
-                      <span className="mr-2">{suggestion.icon}</span>
-                      <span className="text-xs font-semibold text-[#a45d6f]">{suggestion.title}</span>
-                      <p className="mt-1 text-xs sm:text-sm text-[#4a2e35]">{suggestion.label}</p>
+                      <suggestion.icon size={19} strokeWidth={1.7} className="mt-0.5 shrink-0 text-[#be4d69]" />
+                      <span>
+                        <span className="block text-[10px] font-semibold uppercase tracking-[.14em] text-[#9e3b56]">{suggestion.title}</span>
+                        <span className="mt-1 block text-[13px] leading-snug text-[#4a2230] sm:text-sm">{suggestion.label}</span>
+                      </span>
                     </button>
                   ))}
                 </div>
@@ -619,64 +781,93 @@ export default function Home() {
                 {messages.map((message, index) => (
                   <div
                     key={message.id ?? `${message.role}-${index}`}
-                    className={`flex items-start gap-2.5 sm:gap-3 ${message.role === "user" ? "flex-row-reverse" : ""}`}
+                    className={`bubble-in flex items-start gap-2.5 sm:gap-3 ${message.role === "user" ? "flex-row-reverse" : ""}`}
                   >
                     <div
-                      className={`grid size-7 sm:size-8 shrink-0 place-items-center overflow-hidden rounded-full ${
-                        message.role === "user" ? "bg-[#522b37] text-white" : "ring-1 ring-[#f0cad5]"
+                      className={`relative mt-6 grid size-8 shrink-0 place-items-center overflow-hidden rounded-full shadow-[0_0_0_2px_#fff,0_0_0_3.5px_rgba(240,202,213,.95)] sm:size-9 ${
+                        message.role === "user" ? "bg-gradient-to-br from-[#e98aa5] to-[#be4d69] text-white" : ""
                       }`}
                     >
                       {message.role === "user" ? (
-                        <User size={13} />
+                        <User size={15} />
                       ) : (
-                        <Image src="/mireya.jpg" alt="Mireya" width={32} height={32} className="object-cover" />
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={avatarUrl} alt="Mireya" className="h-full w-full object-cover" />
                       )}
                     </div>
 
-                    <div
-                      className={`group relative max-w-[88%] sm:max-w-[85%] rounded-[1.3rem] sm:rounded-[1.5rem] px-4 py-3 sm:px-5 sm:py-4 text-xs sm:text-sm leading-relaxed ${
-                        message.role === "user"
-                          ? "rounded-tr-xs bg-[#522b37] text-[#fff0f3] shadow-xs font-sans"
-                          : "rounded-tl-xs border border-[#f3d3dc] bg-white/85 text-[#42222b] shadow-xs"
-                      }`}
-                    >
-                      {message.role === "user" ? (
-                        <p className="whitespace-pre-wrap">{message.content}</p>
-                      ) : message.content ? (
-                        <>
-                          <div className="prose prose-sm prose-pink max-w-none 
-                            prose-headings:font-serif prose-headings:font-medium prose-headings:text-[#421f2b] prose-headings:tracking-tight
-                            prose-p:font-serif prose-p:font-light prose-p:text-[#42222b] prose-p:leading-relaxed prose-p:mb-4
-                            prose-strong:font-semibold prose-strong:text-[#421f2b]
-                            prose-ul:list-disc prose-ul:marker:text-[#c47185] prose-ul:font-serif prose-ul:font-light
-                            prose-ol:list-decimal prose-ol:marker:text-[#c47185] prose-ol:font-serif prose-ol:font-light
-                            prose-li:my-1
-                          ">
-                            <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ a: MultimediaLink }}>
-                              {message.content}
-                            </ReactMarkdown>
-                          </div>
-                          <button
-                            onClick={() => {
-                              void navigator.clipboard.writeText(message.content);
-                              setCopiedIndex(index);
-                              setTimeout(() => setCopiedIndex(null), 1500);
-                            }}
-                            className="absolute right-2 top-2 hidden rounded bg-white p-1 text-[#9e6776] shadow-sm hover:text-[#522b37] group-hover:block"
+                    <div className={`flex min-w-0 max-w-[86%] flex-col sm:max-w-[80%] ${message.role === "user" ? "items-end" : "items-start"}`}>
+                      <span className="mb-1 px-2 font-hand text-[17px] leading-none text-[#9e3b56]">
+                        {message.role === "user" ? "tú" : "el biógrafo"}
+                      </span>
+
+                      <div className={`msg-line flex max-w-full items-center gap-1.5 ${message.role === "user" ? "flex-row-reverse" : ""}`}>
+                      <div
+                        className={`group relative min-w-0 ${message.role === "user" ? "bubble-user" : "bubble-note"}`}
+                        // Doble toque para reaccionar, como en WhatsApp.
+                        onDoubleClick={() => void toggleHeart(message)}
+                      >
+                        {message.hearted && (
+                          <span
+                            className={`reaction-badge ${message.role === "user" ? "reaction-left" : "reaction-right"} ${poppedHeart === message.id ? "is-popping" : ""}`}
+                            role="img"
+                            aria-label="Le encantó"
                           >
-                            {copiedIndex === index ? <Check size={13} className="text-emerald-600" /> : <Copy size={13} />}
-                          </button>
-                        </>
-                      ) : (
-                        <div className="flex items-center gap-2.5 py-0.5 sm:py-1">
-                          <div className="relative size-8 sm:size-9 overflow-hidden rounded-xl border border-[#f3d3dc] shadow-sm">
-                            <Image src="/bibble.png" alt="Bibble pensando" fill sizes="36px" className="object-cover animate-pulse" />
-                          </div>
-                          <span className="text-[11px] sm:text-xs font-medium text-[#a45d6f] animate-pulse font-serif">
-                            Bibble está consultando recuerdos…
+                            <Heart size={13} fill="currentColor" strokeWidth={0} />
                           </span>
-                        </div>
+                        )}
+                        {message.role === "user" ? (
+                          <p className="whitespace-pre-wrap text-[13.5px] leading-relaxed sm:text-[15px]">{message.content}</p>
+                        ) : message.content ? (
+                          <>
+                            <div className="prose prose-sm max-w-none text-[13.5px] sm:text-[15px]
+                              prose-headings:font-display prose-headings:font-semibold prose-headings:text-[#421f2b]
+                              prose-p:font-serif prose-p:text-[#3f1f2a] prose-p:leading-[1.7] prose-p:my-0 prose-p:mb-3
+                              prose-strong:font-semibold prose-strong:text-[#7a2c43]
+                              prose-em:text-[#9e3b56]
+                              prose-ul:my-2 prose-ul:list-disc prose-ul:font-serif prose-ul:marker:text-[#be4d69]
+                              prose-ol:my-2 prose-ol:list-decimal prose-ol:font-serif prose-ol:marker:text-[#be4d69]
+                              prose-li:my-1 prose-li:text-[#3f1f2a]
+                            ">
+                              <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ a: MultimediaLink }}>
+                                {message.content}
+                              </ReactMarkdown>
+                            </div>
+                            <button
+                              onClick={() => {
+                                void navigator.clipboard.writeText(message.content);
+                                setCopiedIndex(index);
+                                setTimeout(() => setCopiedIndex(null), 1500);
+                              }}
+                              aria-label="Copiar respuesta"
+                              className="absolute -bottom-3.5 right-4 flex items-center gap-1 rounded-full border border-white bg-[#fff5f8]/95 px-2.5 py-1 font-hand text-[15px] leading-none text-[#9e3b56] shadow-[0_6px_14px_-8px_rgba(122,44,67,.7)] transition hover:text-[#522b37] md:opacity-0 md:group-hover:opacity-100"
+                            >
+                              {copiedIndex === index ? <Check size={12} /> : <Copy size={12} />}
+                              {copiedIndex === index ? "copiado" : "copiar"}
+                            </button>
+                          </>
+                        ) : (
+                          <div className="flex items-center gap-3 py-0.5">
+                            <div className="relative size-9 overflow-hidden rounded-full shadow-[0_0_0_2px_#fff,0_0_0_3.5px_rgba(240,202,213,.95)]">
+                              <Image src="/bibble.png" alt="Bibble pensando" fill sizes="36px" className="object-cover" />
+                            </div>
+                            <span className="font-hand text-lg leading-tight text-[#9e3b56]">Bibble está buscando en sus recuerdos</span>
+                            <span className="typing-dots" aria-hidden="true"><i /><i /><i /></span>
+                          </div>
+                        )}
+                      </div>
+                      {message.id && message.content && (
+                        <button
+                          type="button"
+                          onClick={() => void toggleHeart(message)}
+                          className={`react-btn ${message.hearted ? "is-on" : ""}`}
+                          aria-label={message.hearted ? "Quitar corazón" : "Reaccionar con corazón"}
+                          aria-pressed={Boolean(message.hearted)}
+                        >
+                          <Heart size={16} fill={message.hearted ? "currentColor" : "none"} strokeWidth={1.8} />
+                        </button>
                       )}
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -718,7 +909,7 @@ export default function Home() {
           </div>
 
           {/* INPUT BAR */}
-          <footer className="border-t border-[#f3d3dc]/80 bg-white/40 p-3 sm:p-4">
+          <footer className="border-t border-white/60 bg-white/15 p-3 sm:p-4">
             <form
               onSubmit={(event: FormEvent) => {
                 event.preventDefault();
@@ -726,7 +917,7 @@ export default function Home() {
               }}
               className="mx-auto max-w-3xl"
             >
-              <div className="flex items-end gap-2 rounded-2xl border border-[#f3d3dc] bg-white/95 p-1.5 sm:p-2 shadow-xs focus-within:border-[#e5aab8] focus-within:ring-4 focus-within:ring-[#f5dbe2]/60 transition">
+              <div className="flex items-end gap-2 rounded-[1.4rem] border border-white/90 bg-white/70 p-1.5 shadow-[0_10px_24px_-16px_rgba(122,44,67,.6)] backdrop-blur-md transition focus-within:bg-white/90 focus-within:ring-4 focus-within:ring-white/50 sm:p-2">
                 <textarea
                   ref={textareaRef}
                   value={input}
@@ -754,6 +945,12 @@ export default function Home() {
           </footer>
         </section>
       </div>
+      </div>
+
+      {ideasOpen && <IdeasBox api={request} onClose={() => setIdeasOpen(false)} />}
+      {avatarOpen && (
+        <AvatarPicker api={request} current={avatarUrl} onChange={setAvatarUrl} onClose={() => setAvatarOpen(false)} />
+      )}
 
       {/* MODAL NUEVO RECUERDO */}
       {memoryOpen && (
@@ -764,7 +961,7 @@ export default function Home() {
                 <h2 className="font-serif text-xl sm:text-2xl text-[#421f2b]">Nuevo recuerdo</h2>
                 <p className="mt-0.5 sm:mt-1 text-xs sm:text-sm text-[#733b4b]">Se guardará y estará disponible para futuras conversaciones.</p>
               </div>
-              <button onClick={() => setMemoryOpen(false)} className="rounded-full p-2 text-[#8f475a] hover:bg-[#fae6ec]">
+              <button onClick={closeMemory} aria-label="Cerrar" className="rounded-full p-2 text-[#8f475a] hover:bg-[#fae6ec]">
                 <X size={18} />
               </button>
             </div>
@@ -799,6 +996,49 @@ export default function Home() {
                 {memoryStatus === "saving" ? "Guardando…" : "Guardar recuerdo"}
               </button>
             </div>
+
+            {(refugioAdded.length > 0 || refugioSuggestions.length > 0) && (
+              <div className="bubble-in mt-5 rounded-3xl bg-gradient-to-br from-[#5c2a3c] to-[#4a2230] p-4 text-[#fff3f6] shadow-[0_16px_30px_-16px_rgba(74,34,48,.9)] sm:p-5">
+                {refugioAdded.length > 0 && (
+                  <div className="flex items-start gap-3">
+                    <TulipIcon size={22} className="mt-0.5 shrink-0 text-[#f7a8bf]" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium">También lo guardé en El Refugio</p>
+                      <ul className="mt-1.5 space-y-0.5 text-[13px] text-[#ffdfe8]">
+                        {refugioAdded.map((item) => (
+                          <li key={item.id} className="truncate">
+                            <span className="font-hand text-[16px] text-[#f7a8bf]">{KIND_LABELS[item.kind]}:</span> {item.title}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                    <button onClick={() => void undoRefugio()} className="shrink-0 font-hand text-lg text-[#f7a8bf] underline-offset-4 hover:underline">
+                      deshacer
+                    </button>
+                  </div>
+                )}
+
+                {refugioSuggestions.map((suggestion) => (
+                  <div key={`${suggestion.kind}-${suggestion.title}`} className="mt-3 flex flex-wrap items-center gap-2 border-t border-white/15 pt-3 first:mt-0 first:border-0 first:pt-0">
+                    <p className="min-w-0 flex-1 text-[13px]">
+                      ¿Guardo también <strong>{suggestion.title}</strong> <span className="text-[#ffdfe8]">({KIND_LABELS[suggestion.kind]})</span> en El Refugio?
+                    </p>
+                    <button onClick={() => void answerSuggestion(suggestion, true)} className="rounded-full bg-[#f7a8bf] px-3.5 py-1.5 text-xs font-medium text-[#4a2230] hover:bg-[#ffc2d3]">
+                      Sí
+                    </button>
+                    <button onClick={() => void answerSuggestion(suggestion, false)} className="rounded-full border border-white/30 px-3.5 py-1.5 text-xs text-[#ffdfe8] hover:bg-white/10">
+                      No
+                    </button>
+                  </div>
+                ))}
+
+                <div className="mt-4 flex justify-end">
+                  <button onClick={closeMemory} className="rounded-full bg-white/15 px-4 py-2 text-xs font-medium hover:bg-white/25">
+                    Listo
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
