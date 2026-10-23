@@ -1,22 +1,27 @@
 import { NextRequest } from "next/server";
-import { isUnlocked, lockedResponse } from "../../../lib/unlock";
+import { backendApiUrl, backendHeaders } from "../../../lib/backend";
+import { isRefugioUnlocked, isUnlocked, lockedResponse, refugioLockedResponse } from "../../../lib/unlock";
 
-export const runtime = "edge";
-
-function backendUrl(path: string[]) {
-  const base = process.env.BACKEND_URL ?? process.env.API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
-  return `${base.replace(/\/$/, "").replace(/\/v1\/responses$/, "")}/api/${path.join("/")}`;
+// Lo del Refugio pide además su propia clave. Excepción: desde el chat, al
+// guardar un recuerdo, se puede aceptar una sugerencia o deshacer lo agregado
+// sin abrir el Refugio (ni leer nada de él).
+function needsRefugioKey(path: string[], method: string) {
+  if (path[0] !== "refugio") return false;
+  const fromChat =
+    (method === "POST" && path.length === 2 && path[1] === "items") ||
+    (method === "DELETE" && path.length === 3 && path[1] === "items");
+  return !fromChat;
 }
 
 async function proxy(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
   if (!(await isUnlocked(request))) return lockedResponse();
   const { path } = await context.params;
-  const apiKey = process.env.SERVICE_API_KEY ?? process.env.API_KEY;
+  if (needsRefugioKey(path, request.method) && !(await isRefugioUnlocked(request))) return refugioLockedResponse();
   const hasBody = !["GET", "HEAD"].includes(request.method);
   try {
-    const upstream = await fetch(backendUrl(path), {
+    const upstream = await fetch(backendApiUrl(path.join("/")), {
       method: request.method,
-      headers: { "Content-Type": "application/json", ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}) },
+      headers: backendHeaders(),
       body: hasBody ? await request.text() : undefined,
       cache: "no-store",
     });

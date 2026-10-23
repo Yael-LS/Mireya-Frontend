@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { UNLOCK_COOKIE, UNLOCK_MAX_AGE, configuredPin, isUnlocked, unlockToken } from "../../lib/unlock";
 
-export const runtime = "edge";
-
 export async function GET(request: NextRequest) {
   return Response.json({ unlocked: await isUnlocked(request) });
 }

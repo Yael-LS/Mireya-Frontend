@@ -1,8 +1,6 @@
 import { NextRequest } from "next/server";
 import { isUnlocked, lockedResponse } from "../../lib/unlock";
 
-export const runtime = "edge";
-
 export async function POST(request: NextRequest) {
   if (!(await isUnlocked(request))) return lockedResponse();
   const body = await request.json();

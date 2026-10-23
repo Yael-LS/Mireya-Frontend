@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { BookOpen, Camera, ChevronLeft, EyeOff, MessageCircle, Music, Plus, RefreshCw, Sparkles, Tv, Wind } from "lucide-react";
+import { BookOpen, Camera, ChevronLeft, EyeOff, KeyRound, MessageCircle, Music, Plus, RefreshCw, Sparkles, Tv, Wind } from "lucide-react";
+import PinPad from "../components/PinPad";
 import TulipIcon from "../components/TulipIcon";
 import { SKIP_CURTAIN_KEY } from "../components/WelcomeCurtain";
 import { KIND_LABELS, RECALL_KEY } from "../components/refugio-types";
@@ -13,6 +14,7 @@ import { LYRICS } from "../components/scrapbook";
 import type { RecallMoment, RefugioItem, RefugioKind } from "../components/refugio-types";
 import AddToRefugio, { resizePhoto } from "./AddToRefugio";
 import BreatheBox from "./BreatheBox";
+import ChangeRefugioPin from "./ChangeRefugioPin";
 
 type BoxId = "songs" | "series" | "anime" | "bibble" | "breathe" | "quotes" | "books" | "other";
 type Mood = "triste" | "cansada" | "nostalgica" | "bonito";
@@ -82,6 +84,8 @@ function formatDate(value: string | null) {
 export default function RefugioPage() {
   const router = useRouter();
   const [ready, setReady] = useState(false);
+  const [lock, setLock] = useState<{ unlocked: boolean; hint: string | null; error: boolean }>({ unlocked: false, hint: null, error: false });
+  const [changingPin, setChangingPin] = useState(false);
   const [items, setItems] = useState<RefugioItem[]>([]);
   const [loadError, setLoadError] = useState("");
   const [mood, setMood] = useState<Mood | null>(null);
@@ -105,15 +109,46 @@ export default function RefugioPage() {
     void (async () => {
       const { unlocked } = await fetch("/api/unlock", { cache: "no-store" }).then((r) => r.json()).catch(() => ({ unlocked: false }));
       if (!unlocked) return router.replace("/");
+      // El Refugio tiene su propia clave, distinta a la del sitio.
+      const status = await fetch("/api/refugio-lock", { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null);
+      setLock({ unlocked: Boolean(status?.unlocked), hint: status?.hint ?? null, error: !status });
       setReady(true);
+      if (status?.unlocked) loadRefugio();
+    })();
+  }, []);
+
+  const loadRefugio = () => {
+    void (async () => {
       try {
         setItems((await api<{ items: RefugioItem[] }>("refugio")).items);
       } catch (cause) {
         setLoadError(cause instanceof Error ? cause.message : "No pude abrir tu Refugio.");
       }
-      void nextLetter();
-      void nextJoke();
     })();
+    void nextLetter();
+    void nextJoke();
+  };
+
+  const checkRefugioPin = useCallback(
+    async (pin: string) =>
+      (
+        await fetch("/api/refugio-lock", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pin }),
+        })
+      ).ok,
+    []
+  );
+
+  const refugioOpened = useCallback(() => {
+    // Un respiro para ver los corazones llenos antes de entrar.
+    setTimeout(() => {
+      setLock((current) => ({ ...current, unlocked: true }));
+      loadRefugio();
+    }, 650);
   }, []);
 
   const nextLetter = async () => {
@@ -200,6 +235,33 @@ export default function RefugioPage() {
   };
 
   if (!ready) return <main className="refugio-bg min-h-dvh" />;
+
+  if (!lock.unlocked) {
+    return (
+      <main className="refugio-bg flex min-h-dvh flex-col items-center justify-center gap-5 px-4 py-10">
+        {lock.error ? (
+          <p className="max-w-xs text-center font-hand text-2xl text-[#9e3b56]">No pude abrir el candado del Refugio… inténtalo en un ratito.</p>
+        ) : (
+          <PinPad
+            variant="light"
+            onSubmit={checkRefugioPin}
+            onSuccess={refugioOpened}
+            seal={
+              <span className="pin-tulip">
+                <TulipIcon size={34} />
+              </span>
+            }
+            title="El Refugio"
+            prompt="escribe la clave de tu Refugio"
+            hint={lock.hint}
+          />
+        )}
+        <Link href="/" onClick={markSkipCurtain} className="ref-ghost">
+          <ChevronLeft size={17} /> Volver al chat
+        </Link>
+      </main>
+    );
+  }
 
   const order = BOX_ORDER[mood ?? "default"];
 
@@ -422,8 +484,12 @@ export default function RefugioPage() {
           <p className="text-[14px] leading-relaxed text-[#5c2338]">Si lo que sientes pesa demasiado, no tienes que cargarlo sola.</p>
           <p className="font-hand text-[22px] text-[#b8456a]">aquí siempre hay lugar para ti</p>
         </div>
+        <button type="button" onClick={() => setChangingPin(true)} className="mx-auto inline-flex min-h-11 items-center gap-1.5 rounded-full px-4 text-[13px] text-[#9e3b56] transition hover:bg-white/60">
+          <KeyRound size={14} /> cambiar la clave de mi Refugio
+        </button>
       </footer>
 
+      {changingPin && <ChangeRefugioPin currentHint={lock.hint} onClose={() => setChangingPin(false)} onChanged={(hint) => setLock((current) => ({ ...current, hint }))} />}
       {adding && <AddToRefugio api={api} onClose={() => setAdding(false)} onAdded={(item) => setItems((current) => [item, ...current])} />}
     </main>
   );

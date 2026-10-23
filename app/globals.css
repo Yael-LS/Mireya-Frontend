@@ -47,6 +47,11 @@ body::before { content: ""; position: fixed; inset: 0; z-index: 0; pointer-event
   background: linear-gradient(150deg, #7a3a51 0%, #5c2a3c 55%, #4a2230 100%);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, .22), inset 0 -10px 20px -12px rgba(0, 0, 0, .3), 0 12px 24px -14px rgba(74, 34, 48, .9); }
 
+/* Invitación al Refugio después de un mensaje triste */
+.refugio-hint { position: relative; display: flex; align-items: center; gap: 14px; align-self: center; width: 100%; max-width: 440px; margin-top: 6px; padding: 18px 16px 16px 20px; border-radius: 22px; border: 1px solid #fff;
+  background: radial-gradient(rgba(233, 182, 197, .4) .9px, transparent 1.2px) 0 0 / 14px 14px, linear-gradient(160deg, rgba(255, 244, 247, .95), rgba(251, 225, 233, .9));
+  box-shadow: 0 16px 32px -18px rgba(122, 44, 67, .55); transform: rotate(-.6deg); }
+
 /* Reacción con corazón (doble toque o el botón junto a la burbuja) */
 .bubble-note, .bubble-user { -webkit-user-select: text; user-select: text; }
 .reaction-badge { position: absolute; bottom: -10px; z-index: 2; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 999px; background: #fff; color: #e2557d; box-shadow: 0 0 0 2px #fde7ee, 0 4px 10px -3px rgba(122, 44, 67, .45); }
@@ -210,6 +215,20 @@ body::before { content: ""; position: fixed; inset: 0; z-index: 0; pointer-event
 .pin-checking .pin-hearts { opacity: .8; }
 @keyframes pin-shake { 0%, 100% { transform: translateX(0); } 20%, 60% { transform: translateX(-9px); } 40%, 80% { transform: translateX(9px); } }
 @keyframes pin-beat { 0%, 100% { transform: scale(1.12); } 45% { transform: scale(1.35); } }
+.pin-title { color: #fff4f6; }
+.pin-prompt { color: #ffe3ea; }
+/* Variante clara: el candado del Refugio, sobre papel rosa en vez del telón */
+.pin-card--light { background: rgba(255, 255, 255, .55); border-color: #fff; text-shadow: none; box-shadow: inset 0 1px 0 #fff, 0 30px 60px -28px rgba(122, 44, 67, .55); }
+.pin-card--light .pin-title { color: #421f2b; }
+.pin-card--light .pin-prompt { color: #b8456a; }
+.pin-card--light .pin-hearts { color: #d9567a; }
+.pin-card--light .pin-hearts svg { filter: none; }
+.pin-card--light .pin-hearts svg.is-filled { color: #e2557d; }
+.pin-card--light .pin-key { border-color: #f0cad5; background: rgba(255, 255, 255, .75); color: #4a2230; text-shadow: none; }
+.pin-card--light .pin-key:hover { background: #fff; }
+.pin-card--light .pin-key-soft { border-color: transparent; background: transparent; }
+.pin-card--light .pin-hint { max-width: 280px; white-space: normal; background: #fbe1e9; color: #7a2c43; }
+.pin-tulip { display: grid; place-items: center; width: 74px; height: 74px; border-radius: 999px; border: 3px solid #fff; background: radial-gradient(circle at 35% 30%, #fff4f6, #f3c3d0 70%); box-shadow: 0 10px 22px rgba(122, 44, 67, .25); color: #d9567a; }
 .pin-hint { margin: 0; padding: 5px 14px; text-align: center; white-space: nowrap; border-radius: 999px; background: rgba(255, 255, 255, .16); font-family: var(--font-caveat), cursive; font-size: 17px; line-height: 1.2; color: #ffe3ea; }
 .pin-pad { display: grid; grid-template-columns: repeat(3, 64px); gap: 12px 18px; margin-top: 6px; }
 .pin-key { display: grid; place-items: center; width: 64px; height: 64px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, .55); background: rgba(255, 255, 255, .14); color: #fff4f6; font-family: var(--font-figtree), system-ui, sans-serif; font-size: 25px; font-weight: 500; line-height: 1; cursor: pointer; transition: background .15s ease, transform .1s ease; text-shadow: 0 1px 6px rgba(60, 10, 25, .4); }

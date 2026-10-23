@@ -60,6 +60,21 @@ const suggestions = [
   { icon: Flower2, title: "Días grises", label: "¿Qué cosas la hacen sonreír en un día gris?" },
 ];
 
+// Frases en primera persona que suenan a un día gris. Solo cuenta lo que ella
+// dice de sí misma: "¿qué canciones tristes le gustan?" no debe activarlo.
+const SAD_MESSAGE = new RegExp(
+  [
+    "\\b(me siento|estoy|ando|me encuentro|me sent[ií])\\s+(muy |bien |un poco |algo |super |s[uú]per )?(triste|mal|sola|deprimida|desanimada|agobiada|ansiosa|rota|vac[ií]a|perdida|abrumada|apagada)",
+    "\\b(tuve|tengo|fue) un (mal|p[eé]simo|horrible|feo) d[ií]a",
+    "\\b(quiero|tengo ganas de|me dan ganas de|necesito) llorar",
+    "\\bestoy llorando",
+    "\\bno (me )?siento bien",
+    "\\bno puedo m[aá]s",
+    "\\bme siento fatal",
+  ].join("|"),
+  "i"
+);
+
 function parseSse(chunk: string, onDelta: (delta: string) => void, onEvent?: (event: StreamEvent) => void) {
   for (const block of chunk.split("\n\n")) {
     const data = block
@@ -226,6 +241,9 @@ export default function Home() {
   const [avatarUrl, setAvatarUrl] = useState(DEFAULT_AVATAR);
   const [avatarOpen, setAvatarOpen] = useState(false);
   const [poppedHeart, setPoppedHeart] = useState<string | null>(null);
+  // Invitación al Refugio tras un mensaje triste: una sola vez por conversación.
+  const [refugioHint, setRefugioHint] = useState(false);
+  const hintedSessions = useRef<Set<string>>(new Set());
   const [unlocked, setUnlocked] = useState(false);
   const unlock = useCallback(() => setUnlocked(true), []);
   const [refugioAdded, setRefugioAdded] = useState<RefugioItem[]>([]);
@@ -265,6 +283,7 @@ export default function Home() {
     try {
       const data = await request<Message[]>(`sessions/${id}/messages`);
       setMessages(data);
+      setRefugioHint(false);
       setCurrentSessionId(id);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No se pudo cargar la conversación.");
@@ -288,6 +307,7 @@ export default function Home() {
       });
       setSessions((current) => [session, ...current]);
       setMessages([]);
+      setRefugioHint(false);
       setCurrentSessionId(session.id);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No se pudo crear la conversación.");
@@ -389,6 +409,12 @@ export default function Home() {
 
       if (buffer.trim()) parseSse(buffer, appendDelta, assignIds);
       void loadSessions();
+
+      // Tras la respuesta (no antes), una invitación suave a su Refugio.
+      if (SAD_MESSAGE.test(question) && !hintedSessions.current.has(currentSessionId)) {
+        hintedSessions.current.add(currentSessionId);
+        setRefugioHint(true);
+      }
     } catch (cause) {
       const msg = cause instanceof Error ? cause.message : "Ocurrió un pequeño imprevisto con la memoria.";
       setError(msg);
@@ -871,6 +897,21 @@ export default function Home() {
                     </div>
                   </div>
                 ))}
+                {refugioHint && !isStreaming && (
+                  <div className="refugio-hint bubble-in" role="note">
+                    <span aria-hidden="true" className="washi washi-sm" />
+                    <TulipIcon size={26} className="shrink-0 text-[#d9567a]" />
+                    <div className="min-w-0 flex-1">
+                      <p className="font-hand text-[22px] leading-tight text-[#5c2338]">si hoy es un día gris, tu Refugio te está esperando</p>
+                      <Link href="/refugio" className="mt-2 inline-flex min-h-10 items-center gap-1.5 rounded-full bg-[#4a2230] px-4 text-[13px] font-medium text-[#fff3f6] transition hover:bg-[#3d1d27]">
+                        Ir a mi Refugio
+                      </Link>
+                    </div>
+                    <button type="button" onClick={() => setRefugioHint(false)} aria-label="Cerrar invitación al Refugio" className="self-start rounded-full p-1.5 text-[#b07d8d] hover:bg-white/70">
+                      <X size={16} />
+                    </button>
+                  </div>
+                )}
                 <div ref={endRef} />
               </div>
             )}

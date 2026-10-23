@@ -37,3 +37,24 @@ export async function isUnlocked(request: NextRequest): Promise<boolean> {
 export function lockedResponse() {
   return Response.json({ detail: "Escribe tu clave para entrar." }, { status: 401 });
 }
+
+// ---------- Clave del Refugio ----------
+// Cookie de sesión (se borra al cerrar el navegador) que además caduca a las 2 h.
+export const REFUGIO_COOKIE = "mireya_refugio";
+export const REFUGIO_TTL_SECONDS = 2 * 60 * 60;
+
+export async function refugioToken(issuedAt: number): Promise<string> {
+  const secret = `${configuredPin() ?? ""}:${process.env.PIN_SECRET ?? ""}:refugio`;
+  return `${issuedAt}.${await hmac(secret, `refugio:${issuedAt}`)}`;
+}
+
+export async function isRefugioUnlocked(request: NextRequest): Promise<boolean> {
+  const value = request.cookies.get(REFUGIO_COOKIE)?.value;
+  const issuedAt = Number(value?.split(".")[0]);
+  if (!value || !issuedAt || Date.now() / 1000 - issuedAt > REFUGIO_TTL_SECONDS) return false;
+  return value === (await refugioToken(issuedAt));
+}
+
+export function refugioLockedResponse() {
+  return Response.json({ detail: "El Refugio está cerrado: escribe su clave." }, { status: 401 });
+}

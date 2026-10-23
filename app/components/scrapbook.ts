@@ -1,4 +1,4 @@
-export type Category = "bibble" | "bungo" | "dino" | "hortensia" | "taylor";
+export type Category = "bibble" | "bungo" | "dino" | "hortensia" | "taylor" | "book";
 export type Shape = "heart" | "flower" | "arch" | "circle" | "stamp" | "polaroid";
 export type Layer = "far" | "mid" | "near";
 
@@ -46,6 +46,7 @@ const PHOTOS: Record<Category, Photo[]> = {
     { src: "/taylor5.png", caption: "Red (TV)" },
     { src: "/taylor6.png", caption: "the eras" },
   ],
+  book: [{ src: "/boulevard.png", caption: "Boulevard" }],
 };
 
 // Su top de canciones de Taylor Swift.
@@ -105,13 +106,13 @@ const DESKTOP_SLOTS: Slot[] = [
   desk("bungo", "polaroid", 1270, 604, 150, -4, "near"),
   desk("hortensia", "heart", 1130, 612, 118, 9, "mid"),
   desk("bibble", "arch", 1160, 772, 110, 3, "near"),
-  desk("dino", "stamp", 1322, 792, 96, -6, "far"),
+  desk("book", "stamp", 1322, 786, 100, -6, "mid"),
   desk("bibble", "circle", 1380, 190, 74, 0, "far"),
   desk("bungo", "heart", 1250, 360, 70, 0, "far"),
   desk("hortensia", "flower", 1400, 560, 84, 0, "far"),
   desk("hortensia", "flower", 380, -34, 104, 0, "far"),
   desk("bibble", "heart", 612, -44, 92, 0, "far"),
-  desk("bungo", "stamp", 880, -30, 96, 4, "far"),
+  desk("book", "stamp", 880, -30, 96, 4, "far"),
   desk("dino", "circle", 1040, -20, 84, 0, "far"),
   desk("dino", "heart", 450, 822, 108, 0, "far"),
   desk("hortensia", "circle", 724, 838, 96, 0, "far"),
@@ -132,7 +133,7 @@ const MOBILE_SLOTS: Slot[] = [
   mob("hortensia", "heart", -34, "36%", 80, 0, "far"),
   mob("dino", "circle", 344, "40%", 76, 0, "far"),
   mob("hortensia", "flower", -30, "60%", 84, 0, "far"),
-  mob("bungo", "stamp", 340, "64%", 70, 0, "far"),
+  mob("book", "stamp", 340, "64%", 70, 0, "far"),
   mob("bungo", "heart", -16, "calc(100% - 64px)", 70, -8, "near"),
   mob("bibble", "arch", 330, "calc(100% - 70px)", 62, 6, "near"),
 ];
