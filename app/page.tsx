@@ -43,6 +43,16 @@ type StreamEvent = { type: string; delta?: string; message?: string; user_messag
 type Session = { id: string; title: string; created_at: string; updated_at: string };
 type IngestResult = { refugio?: RefugioItem[]; refugio_suggestions?: RefugioSuggestion[] };
 
+const DRAFT_KEY = "mireya-draft-";
+
+function readDraft(sessionId: string) {
+  try {
+    return localStorage.getItem(DRAFT_KEY + sessionId) ?? "";
+  } catch {
+    return "";
+  }
+}
+
 function takeRecallMoment(): RecallMoment | null {
   try {
     const raw = sessionStorage.getItem(RECALL_KEY);
@@ -285,6 +295,7 @@ export default function Home() {
       setMessages(data);
       setRefugioHint(false);
       setCurrentSessionId(id);
+      setInput(readDraft(id));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No se pudo cargar la conversación.");
     } finally {
@@ -309,6 +320,7 @@ export default function Home() {
       setMessages([]);
       setRefugioHint(false);
       setCurrentSessionId(session.id);
+      setInput("");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No se pudo crear la conversación.");
     } finally {
@@ -344,6 +356,15 @@ export default function Home() {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages, isStreaming]);
 
+  // Borrador por conversación: si se cierra la pestaña a medio mensaje, no se pierde.
+  useEffect(() => {
+    if (!currentSessionId) return;
+    try {
+      if (input) localStorage.setItem(DRAFT_KEY + currentSessionId, input);
+      else localStorage.removeItem(DRAFT_KEY + currentSessionId);
+    } catch {}
+  }, [input, currentSessionId]);
+
   const sendMessage = async (prompt?: string) => {
     const question = (prompt ?? input).trim();
     if (!question || isStreaming || !currentSessionId) return;
@@ -358,16 +379,43 @@ export default function Home() {
 
     setMessages((current) => [...current, { role: "user", content: question }, { role: "assistant", content: "" }]);
     setInput("");
+    if (textareaRef.current) textareaRef.current.style.height = "auto";
+
+    const result = await streamReply(currentSessionId, { message: question });
+    if (result === "lost") {
+      // Su mensaje no alcanzó a guardarse: se le devuelve a la caja de texto
+      // para que no tenga que escribirlo otra vez.
+      setMessages((current) => current.slice(0, -1));
+      setInput(question);
+    }
+
+    // Tras la respuesta (no antes), una invitación suave a su Refugio.
+    if (result === "ok" && SAD_MESSAGE.test(question) && !hintedSessions.current.has(currentSessionId)) {
+      hintedSessions.current.add(currentSessionId);
+      setRefugioHint(true);
+    }
+  };
+
+  // Pide la respuesta del último mensaje que se quedó sin contestar, sin reenviarlo.
+  const retryReply = async () => {
+    if (isStreaming || !currentSessionId) return;
+    setMessages((current) => [...current, { role: "assistant", content: "" }]);
+    await streamReply(currentSessionId, { retry: true });
+  };
+
+  // "ok": hubo respuesta. "saved": su mensaje está guardado pero sin respuesta.
+  // "lost": su mensaje no llegó al servidor.
+  const streamReply = async (sessionId: string, payload: { message?: string; retry?: boolean }): Promise<"ok" | "saved" | "lost"> => {
     setError("");
     setIsStreaming(true);
-
-    if (textareaRef.current) textareaRef.current.style.height = "auto";
+    let saved = Boolean(payload.retry);
+    let answered = false;
 
     try {
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ session_id: currentSessionId, message: question, stream: true }),
+        body: JSON.stringify({ session_id: sessionId, stream: true, ...payload }),
       });
 
       if (!response.ok || !response.body) {
@@ -389,12 +437,20 @@ export default function Home() {
       // El servidor manda los ids de ambos mensajes para poder reaccionarles con corazón.
       const assignIds = (event: StreamEvent) => {
         if (event.type === "response.created" && event.user_message_id) {
+          saved = true;
           const id = event.user_message_id;
           setMessages((current) => current.map((message, index) => (index === current.length - 2 ? { ...message, id } : message)));
         }
-        if (event.type === "response.completed" && event.message_id) {
-          const id = event.message_id;
-          setMessages((current) => current.map((message, index) => (index === current.length - 1 ? { ...message, id } : message)));
+        // La respuesta se cortó en el servidor y vuelve a empezar: se borra lo parcial.
+        if (event.type === "response.output_text.reset") {
+          setMessages((current) => current.map((message, index) => (index === current.length - 1 ? { ...message, content: "" } : message)));
+        }
+        if (event.type === "response.completed") {
+          answered = true;
+          if (event.message_id) {
+            const id = event.message_id;
+            setMessages((current) => current.map((message, index) => (index === current.length - 1 ? { ...message, id } : message)));
+          }
         }
       };
 
@@ -409,16 +465,15 @@ export default function Home() {
 
       if (buffer.trim()) parseSse(buffer, appendDelta, assignIds);
       void loadSessions();
-
-      // Tras la respuesta (no antes), una invitación suave a su Refugio.
-      if (SAD_MESSAGE.test(question) && !hintedSessions.current.has(currentSessionId)) {
-        hintedSessions.current.add(currentSessionId);
-        setRefugioHint(true);
-      }
+      if (!answered) throw new Error("La respuesta se interrumpió antes de terminar.");
+      return "ok";
     } catch (cause) {
       const msg = cause instanceof Error ? cause.message : "Ocurrió un pequeño imprevisto con la memoria.";
       setError(msg);
-      setMessages((current) => current.filter((message, index) => !(index === current.length - 1 && !message.content)));
+      // Lo que alcanzó a salir de la respuesta no se guardó: se quita para que
+      // "Reintentar" la genere completa. El mensaje de ella se queda.
+      setMessages((current) => current.slice(0, -1));
+      return saved ? "saved" : "lost";
     } finally {
       setIsStreaming(false);
       textareaRef.current?.focus();
@@ -897,6 +952,18 @@ export default function Home() {
                     </div>
                   </div>
                 ))}
+                {!isStreaming && !error && messages.at(-1)?.role === "user" && (
+                  <div className="bubble-in ml-auto flex max-w-[86%] flex-wrap items-center justify-end gap-2 text-right sm:max-w-[80%]" role="note">
+                    <p className="text-[11px] text-[#8f475a] sm:text-xs">Tu mensaje está guardado, pero el biógrafo no alcanzó a responderlo.</p>
+                    <button
+                      type="button"
+                      onClick={() => void retryReply()}
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-[#522b37] px-3 py-1.5 text-xs font-medium text-white shadow-xs transition hover:bg-[#3d1d27]"
+                    >
+                      <RefreshCw size={12} /> Pedir respuesta
+                    </button>
+                  </div>
+                )}
                 {refugioHint && !isStreaming && (
                   <div className="refugio-hint bubble-in" role="note">
                     <span aria-hidden="true" className="washi washi-sm" />
@@ -938,7 +1005,8 @@ export default function Home() {
                   <button
                     onClick={() => {
                       setError("");
-                      void sendMessage();
+                      // Si su mensaje ya está guardado, se pide solo la respuesta.
+                      void (messages.at(-1)?.role === "user" ? retryReply() : sendMessage());
                     }}
                     className="inline-flex items-center gap-1.5 rounded-xl bg-[#522b37] px-3 py-1.5 text-xs font-medium text-white shadow-xs transition hover:bg-[#3d1d27]"
                   >
