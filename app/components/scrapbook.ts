@@ -19,8 +19,8 @@ type LyricSlot = { left?: string; right?: string; top: string; rotate: number };
 
 export type Lyric = { text: string; source: string };
 
-export type PlacedSticker = Slot & Photo & { delay: number; floatDelay: number };
-export type PlacedLyric = LyricSlot & Lyric & { delay: number };
+export type PlacedSticker = Slot & Photo & { floats: boolean; floatDelay: number };
+export type PlacedLyric = LyricSlot & Lyric;
 
 export type Collage = {
   desktop: PlacedSticker[];
@@ -138,6 +138,10 @@ const MOBILE_SLOTS: Slot[] = [
   mob("bibble", "arch", 330, "calc(100% - 70px)", 62, 6, "near"),
 ];
 
+// Los únicos que flotan: cercanos y fuera del panel, para no recalcular el vidrio.
+const DESKTOP_FLOATERS = new Set([0, 2, 4, 14, 15, 19]);
+const MOBILE_FLOATERS = new Set([0, 2, 3]);
+
 const DESKTOP_LYRIC_SLOTS: LyricSlot[] = [
   { left: "18px", top: "40%", rotate: -4 },
   { right: "18px", top: "38%", rotate: 3 },
@@ -156,7 +160,7 @@ function shuffle<T>(items: T[]): T[] {
   return copy;
 }
 
-function placeStickers(slots: Slot[]): PlacedSticker[] {
+function placeStickers(slots: Slot[], floaters: Set<number>): PlacedSticker[] {
   const decks = new Map<Category, Photo[]>();
   return slots.map((slot, index) => {
     let deck = decks.get(slot.category);
@@ -168,14 +172,14 @@ function placeStickers(slots: Slot[]): PlacedSticker[] {
     return {
       ...slot,
       ...photo,
-      delay: 0.7 + (index % 13) * 0.07 + (slot.layer === "far" ? 0.35 : 0),
-      floatDelay: 1.8 + (index % 7) * 0.6,
+      floats: floaters.has(index),
+      floatDelay: (index % 4) * 0.6,
     };
   });
 }
 
 function placeLyrics(slots: LyricSlot[], lyrics: Lyric[]): PlacedLyric[] {
-  return slots.map((slot, index) => ({ ...slot, ...lyrics[index], delay: 1.3 + index * 0.18 }));
+  return slots.map((slot, index) => ({ ...slot, ...lyrics[index] }));
 }
 
 // Se arma en el cliente después de montar: cada visita trae otra combinación
@@ -183,8 +187,8 @@ function placeLyrics(slots: LyricSlot[], lyrics: Lyric[]): PlacedLyric[] {
 export function buildCollage(): Collage {
   const lyrics = shuffle(LYRICS);
   return {
-    desktop: placeStickers(DESKTOP_SLOTS),
-    mobile: placeStickers(MOBILE_SLOTS),
+    desktop: placeStickers(DESKTOP_SLOTS, DESKTOP_FLOATERS),
+    mobile: placeStickers(MOBILE_SLOTS, MOBILE_FLOATERS),
     desktopLyrics: placeLyrics(DESKTOP_LYRIC_SLOTS, lyrics),
     mobileLyrics: placeLyrics(MOBILE_LYRIC_SLOTS, lyrics),
   };

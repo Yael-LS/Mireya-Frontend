@@ -6,11 +6,6 @@
 * { box-sizing: border-box; }
 html { background: #e9dfdc; }
 body { margin: 0; background: radial-gradient(circle at 11% 10%, rgba(228, 211, 224, .9), transparent 29%), radial-gradient(circle at 88% 82%, rgba(231, 193, 130, .38), transparent 33%), linear-gradient(125deg, #eee8e3, #e7dddd 48%, #e4e1eb); font-family: var(--font-geist); }
-body::before { content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: .25; background-image: radial-gradient(rgba(77, 54, 52, .35) .6px, transparent .7px); background-size: 10px 10px; mix-blend-mode: soft-light; }
-.ambient { position: fixed; z-index: 0; border-radius: 999px; filter: blur(14px); opacity: .45; pointer-events: none; animation: drift 12s ease-in-out infinite alternate; }
-.ambient-one { top: 9%; left: 5%; width: 10rem; height: 10rem; background: #c7add2; }
-.ambient-two { right: 6%; bottom: 8%; width: 13rem; height: 13rem; background: #e4ba70; animation-delay: -5s; }
-@keyframes drift { to { transform: translate3d(28px, -16px, 0) scale(1.08); } }
 ::selection { background: #d8c0d9; color: #2c242b; }
 
 /* ---------- Scrapbook: collage de fondo ---------- */
@@ -21,12 +16,19 @@ body::before { content: ""; position: fixed; inset: 0; z-index: 0; pointer-event
 
 /* ---------- Panel de vidrio esmerilado ---------- */
 .glass-panel { background: linear-gradient(140deg, rgba(255, 250, 252, .42), rgba(255, 232, 240, .26) 55%, rgba(255, 246, 249, .36)); border: 1px solid rgba(255, 255, 255, .75);
-  -webkit-backdrop-filter: blur(14px) saturate(1.35); backdrop-filter: blur(14px) saturate(1.35);
+  contain: paint; /* Recorta el menú lateral, que es position: fixed, como antes lo hacía el blur */
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, .95), inset 0 0 0 1px rgba(255, 255, 255, .2), 0 30px 70px -22px rgba(150, 60, 90, .45); }
+/* El vidrio se enciende al terminar el telón: mientras tanto, un fondo casi opaco.
+   Desenfocar el collage durante la apertura es de lo más caro de la animación. */
+.glass-panel::before, .glass-panel::after { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; transition: opacity .6s ease; }
+.glass-panel::before { -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); opacity: 0; }
+.glass-panel::after { background: #fbe6ec; opacity: .9; }
+.glass-panel.is-settled::before { opacity: 1; }
+.glass-panel.is-settled::after { opacity: 0; }
 /* En celular hay poco espacio: el vidrio es más claro para que el collage luzca detrás */
 @media (max-width: 767px) {
-  .glass-panel { background: linear-gradient(140deg, rgba(255, 250, 252, .24), rgba(255, 232, 240, .12) 55%, rgba(255, 246, 249, .2));
-    -webkit-backdrop-filter: blur(7px) saturate(1.3); backdrop-filter: blur(7px) saturate(1.3); }
+  .glass-panel { background: linear-gradient(140deg, rgba(255, 250, 252, .24), rgba(255, 232, 240, .12) 55%, rgba(255, 246, 249, .2)); }
+  .glass-panel::before { -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
 }
 .panel-tape { position: absolute; z-index: 20; width: 96px; height: 26px; pointer-events: none; background: repeating-linear-gradient(45deg, rgba(255, 255, 255, .55) 0 6px, rgba(255, 255, 255, .2) 6px 12px), rgba(240, 160, 185, .7); box-shadow: 0 2px 4px rgba(122, 44, 67, .18); }
 /* ---------- Burbujas de mensajes ---------- */
@@ -78,22 +80,22 @@ body::before { content: ""; position: fixed; inset: 0; z-index: 0; pointer-event
 .scrollbar-soft { scrollbar-width: thin; scrollbar-color: rgba(190, 77, 105, .35) transparent; }
 
 .sticker-slot { position: absolute; }
-.sticker-far { z-index: 1; opacity: .55; filter: blur(1.6px) saturate(.7); }
+.sticker-far { z-index: 1; opacity: .55; }
 .sticker-mid { z-index: 2; opacity: .92; }
 .sticker-near { z-index: 3; }
-.sticker-pop { opacity: 0; }
-.is-revealed .sticker-pop { animation: sticker-pop .9s cubic-bezier(.2, .9, .3, 1.35) both, sticker-float 7s ease-in-out infinite alternate; }
-@keyframes sticker-pop { from { opacity: 0; transform: scale(.4) translateY(30px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+/* El collage ya está colocado cuando se abre el telón; solo unos pocos flotan, y hasta después. */
+.is-settled .sticker-floats { animation: sticker-float 7s ease-in-out infinite alternate; }
 @keyframes sticker-float { from { transform: translateY(0); } to { transform: translateY(-9px); } }
 
-/* Borde blanco troquelado + sombra alrededor de la forma recortada */
-.sticker-outline { filter: drop-shadow(3px 0 0 #fff) drop-shadow(-3px 0 0 #fff) drop-shadow(0 3px 0 #fff) drop-shadow(0 -3px 0 #fff) drop-shadow(0 10px 14px rgba(122, 44, 67, .22)); }
+/* Borde blanco troquelado: la misma forma en blanco, un poco más grande, detrás de la foto */
+.sticker-outline { position: relative; filter: drop-shadow(0 8px 10px rgba(122, 44, 67, .2)); }
+.sticker-outline::before { content: ""; position: absolute; inset: -3px; background: #fff; clip-path: var(--sticker-clip, none); border-radius: var(--sticker-radius, 0); }
+.sticker-far .sticker-outline { filter: none; }
 .sticker-photo { position: relative; overflow: hidden; }
-.sticker-photo img { filter: saturate(.88) contrast(.96); }
-/* Velo rosa en luz suave: tiñe el fondo original para que combine con el rosa */
-.sticker-photo::after { content: ""; position: absolute; inset: 0; background: linear-gradient(160deg, #ffdbe5, #f2a3bb); mix-blend-mode: soft-light; opacity: .6; }
+/* Velo rosa: tiñe el fondo original para que combine con el rosa */
+.sticker-photo::after { content: ""; position: absolute; inset: 0; background: rgba(242, 163, 187, .16); }
 
-.sticker-stamp { aspect-ratio: 1 / 1.18; background: #fffaf7; padding: 9px; filter: drop-shadow(0 8px 10px rgba(122, 44, 67, .2));
+.sticker-stamp { aspect-ratio: 1 / 1.18; background: #fffaf7; padding: 9px;
   -webkit-mask: radial-gradient(circle at 7px 7px, transparent 4px, #000 4.6px) -7px -7px / 14px 14px, linear-gradient(#000 0 0) center / calc(100% - 14px) calc(100% - 14px) no-repeat;
   mask: radial-gradient(circle at 7px 7px, transparent 4px, #000 4.6px) -7px -7px / 14px 14px, linear-gradient(#000 0 0) center / calc(100% - 14px) calc(100% - 14px) no-repeat; }
 .sticker-polaroid { position: relative; background: #fffaf7; padding: 7% 7% 0; box-shadow: 0 14px 24px -8px rgba(122, 44, 67, .35), 0 1px 0 rgba(122, 44, 67, .08); }
@@ -118,6 +120,7 @@ body::before { content: ""; position: fixed; inset: 0; z-index: 0; pointer-event
 .curtain-stage { position: fixed; inset: 0; z-index: 100; overflow: hidden; }
 .curtain { position: absolute; top: 0; bottom: 0; width: 50.5%; transition: transform 2s cubic-bezier(.76, 0, .18, 1) .35s;
   background: linear-gradient(180deg, rgba(255, 255, 255, .1), transparent 35%, rgba(60, 10, 25, .22)), repeating-linear-gradient(90deg, #a3405b 0, #c05a76 18px, #d06f8a 27px, #b5506b 40px, #a3405b 54px); }
+.curtain { will-change: transform; }
 .curtain-left { left: 0; transform-origin: left center; box-shadow: inset -30px 0 40px -10px rgba(60, 10, 25, .45); }
 .curtain-right { right: 0; transform-origin: right center; box-shadow: inset 30px 0 40px -10px rgba(60, 10, 25, .45); }
 .curtain-stage.is-open .curtain-left { transform: translateX(-100%) scaleX(.55); }
@@ -241,6 +244,6 @@ body::before { content: ""; position: fixed; inset: 0; z-index: 0; pointer-event
 @media (prefers-reduced-motion: reduce) {
   .curtain, .curtain-valance, .curtain-seal-wrap { transition: none; }
   .pin-wrong .pin-hearts, .pin-right .pin-hearts svg { animation: none; }
-  .is-revealed .sticker-pop { animation: sticker-fade .6s ease both; }
-  @keyframes sticker-fade { from { opacity: 0; } to { opacity: 1; } }
+  .is-settled .sticker-floats { animation: none; }
+  .glass-panel::before, .glass-panel::after { transition: none; }
 }

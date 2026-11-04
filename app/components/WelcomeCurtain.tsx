@@ -8,6 +8,8 @@ const AUTO_OPEN_MS = 1000;
 const UNLOCKED_PAUSE_MS = 650;
 // Duración del recorrido completo: las cortinas (2.35 s) y la cenefa (2.6 s).
 const OPEN_DURATION_MS = 2800;
+// Si las fotos del collage tardan, el telón se abre de todos modos.
+const MAX_COLLAGE_WAIT_MS = 1500;
 // El Refugio lo marca al volver al chat para no repetir el telón en la misma visita.
 export const SKIP_CURTAIN_KEY = "mireya:skip-curtain";
 
@@ -34,14 +36,24 @@ const checkSitePin = async (pin: string) =>
     })
   ).ok;
 
-type Props = { onUnlock: () => void; onOpen: () => void };
+type Props = { collageReady: boolean; onUnlock: () => void; onOpen: () => void; onSettled: () => void };
 
-export default function WelcomeCurtain({ onUnlock, onOpen }: Props) {
+export default function WelcomeCurtain({ collageReady, onUnlock, onOpen, onSettled }: Props) {
   const [phase, setPhase] = useState<Phase>("checking");
   // Si entró con el PIN, el teclado sigue visible mientras se abre el telón.
   const [unlockedByPin, setUnlockedByPin] = useState(false);
 
-  const open = useCallback(() => setPhase((current) => (current === "closed" ? "opening" : current)), []);
+  const [wantsOpen, setWantsOpen] = useState(false);
+
+  const open = useCallback(() => setWantsOpen(true), []);
+
+  useEffect(() => {
+    if (!wantsOpen) return;
+    const startOpening = () => setPhase((current) => (current === "closed" || current === "locked" ? "opening" : current));
+    if (collageReady) return startOpening();
+    const timer = setTimeout(startOpening, MAX_COLLAGE_WAIT_MS);
+    return () => clearTimeout(timer);
+  }, [wantsOpen, collageReady]);
 
   useEffect(() => {
     let cancelled = false;
@@ -68,16 +80,16 @@ export default function WelcomeCurtain({ onUnlock, onOpen }: Props) {
   useEffect(() => {
     if (phase !== "opening" && phase !== "gone") return;
     onOpen();
-    if (phase !== "opening") return;
+    if (phase === "gone") return onSettled();
     const timer = setTimeout(() => setPhase("gone"), OPEN_DURATION_MS);
     return () => clearTimeout(timer);
-  }, [phase, onOpen]);
+  }, [phase, onOpen, onSettled]);
 
   const pinAccepted = useCallback(() => {
     setUnlockedByPin(true);
     onUnlock();
-    setTimeout(() => setPhase(prefersReducedMotion() ? "gone" : "opening"), UNLOCKED_PAUSE_MS);
-  }, [onUnlock]);
+    setTimeout(() => (prefersReducedMotion() ? setPhase("gone") : open()), UNLOCKED_PAUSE_MS);
+  }, [onUnlock, open]);
 
   if (phase === "gone") return null;
 

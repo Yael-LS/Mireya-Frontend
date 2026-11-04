@@ -247,6 +247,11 @@ export default function Home() {
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [revealed, setRevealed] = useState(false);
   const reveal = useCallback(() => setRevealed(true), []);
+  // El telón ya terminó: a partir de aquí se pinta la conversación y se enciende el vidrio.
+  const [settled, setSettled] = useState(false);
+  const settle = useCallback(() => setSettled(true), []);
+  const [collageReady, setCollageReady] = useState(false);
+  const markCollageReady = useCallback(() => setCollageReady(true), []);
   const [ideasOpen, setIdeasOpen] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState(DEFAULT_AVATAR);
   const [avatarOpen, setAvatarOpen] = useState(false);
@@ -259,6 +264,8 @@ export default function Home() {
   const [refugioAdded, setRefugioAdded] = useState<RefugioItem[]>([]);
   const [refugioSuggestions, setRefugioSuggestions] = useState<RefugioSuggestion[]>([]);
   const endRef = useRef<HTMLDivElement>(null);
+  // Al abrir una conversación se salta al final; el scroll suave es para lo que va llegando.
+  const jumpToEnd = useRef(true);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -292,6 +299,7 @@ export default function Home() {
     }
     try {
       const data = await request<Message[]>(`sessions/${id}/messages`);
+      jumpToEnd.current = true;
       setMessages(data);
       setRefugioHint(false);
       setCurrentSessionId(id);
@@ -353,8 +361,10 @@ export default function Home() {
   }, [unlocked]);
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [messages, isStreaming]);
+    if (!endRef.current) return;
+    endRef.current.scrollIntoView({ behavior: jumpToEnd.current ? "auto" : "smooth", block: "end" });
+    jumpToEnd.current = false;
+  }, [messages, isStreaming, settled]);
 
   // Borrador por conversación: si se cierra la pestaña a medio mensaje, no se pierde.
   useEffect(() => {
@@ -641,8 +651,8 @@ export default function Home() {
 
   return (
     <main className="relative isolate min-h-dvh px-2 py-14 md:p-5">
-      <ScrapbookBackground revealed={revealed} />
-      <WelcomeCurtain onUnlock={unlock} onOpen={reveal} />
+      <ScrapbookBackground settled={settled} onReady={markCollageReady} />
+      <WelcomeCurtain collageReady={collageReady} onUnlock={unlock} onOpen={reveal} onSettled={settle} />
 
       {/* En celular el collage ocupa la banda superior; en escritorio rodea el panel */}
       <div
@@ -652,7 +662,7 @@ export default function Home() {
       >
       <span aria-hidden="true" className="panel-tape -top-3 left-8 -rotate-6 sm:left-14" />
       <span aria-hidden="true" className="panel-tape -top-3 right-8 rotate-[5deg] sm:right-14" />
-      <div className="glass-panel relative flex h-[calc(100dvh-7rem)] overflow-hidden rounded-[2rem] md:h-[94dvh]">
+      <div className={`glass-panel ${settled ? "is-settled" : ""} relative flex h-[calc(100dvh-7rem)] overflow-hidden rounded-[2rem] md:h-[94dvh]`}>
 
         {/* BACKDROP OSCURO EN MÓVIL AL ABRIR SIDEBAR */}
         {sidebarOpen && (
@@ -694,7 +704,7 @@ export default function Home() {
                 setMemoryOpen(true);
                 if (typeof window !== "undefined" && window.innerWidth < 768) setSidebarOpen(false);
               }}
-              className="mt-2.5 flex items-center justify-center gap-2 rounded-full border border-white/80 bg-white/45 px-4 py-2.5 text-sm text-[#733b4b] backdrop-blur-sm transition hover:bg-white/75"
+              className="mt-2.5 flex items-center justify-center gap-2 rounded-full border border-white/80 bg-white/45 px-4 py-2.5 text-sm text-[#733b4b] transition hover:bg-white/75"
             >
               <BrainCircuit size={16} className="text-[#be4d69]" />
               Guardar recuerdo
@@ -702,7 +712,7 @@ export default function Home() {
 
             <Link
               href="/refugio"
-              className="mt-2.5 flex items-center justify-center gap-2 rounded-full border border-white/80 bg-[#fbe1e9]/60 px-4 py-2.5 text-sm text-[#7a2c43] backdrop-blur-sm transition hover:bg-[#fbe1e9]/90"
+              className="mt-2.5 flex items-center justify-center gap-2 rounded-full border border-white/80 bg-[#fbe1e9]/60 px-4 py-2.5 text-sm text-[#7a2c43] transition hover:bg-[#fbe1e9]/90"
             >
               <TulipIcon size={17} className="text-[#d9567a]" />
               El Refugio
@@ -713,7 +723,7 @@ export default function Home() {
                 setIdeasOpen(true);
                 if (typeof window !== "undefined" && window.innerWidth < 768) setSidebarOpen(false);
               }}
-              className="mt-2.5 flex items-center justify-center gap-2 rounded-full border border-white/80 bg-[#fff8f1]/70 px-4 py-2.5 text-sm text-[#7a2c43] backdrop-blur-sm transition hover:bg-[#fff8f1]"
+              className="mt-2.5 flex items-center justify-center gap-2 rounded-full border border-white/80 bg-[#fff8f1]/70 px-4 py-2.5 text-sm text-[#7a2c43] transition hover:bg-[#fff8f1]"
             >
               <Lightbulb size={16} className="text-[#d9567a]" />
               Caja de ideas
@@ -774,7 +784,7 @@ export default function Home() {
             <div className="flex min-w-0 items-center gap-2 sm:gap-3">
               <button
                 onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="grid size-9 shrink-0 place-items-center rounded-full border border-white/80 bg-white/45 text-[#733b4b] backdrop-blur-sm transition hover:bg-white/75 sm:size-10"
+                className="grid size-9 shrink-0 place-items-center rounded-full border border-white/80 bg-white/45 text-[#733b4b] transition hover:bg-white/75 sm:size-10"
                 aria-label="Alternar historial"
               >
                 {sidebarOpen ? <ChevronLeft size={18} /> : <Menu size={18} />}
@@ -805,7 +815,7 @@ export default function Home() {
             <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
               <Link
                 href="/refugio"
-                className="grid size-9 place-items-center rounded-full border border-white/80 bg-white/45 text-[#d9567a] backdrop-blur-sm transition hover:bg-white/75 sm:size-10"
+                className="grid size-9 place-items-center rounded-full border border-white/80 bg-white/45 text-[#d9567a] transition hover:bg-white/75 sm:size-10"
                 aria-label="Ir a El Refugio"
                 title="El Refugio"
               >
@@ -813,7 +823,7 @@ export default function Home() {
               </Link>
               <button
                 onClick={() => setMemoryOpen(true)}
-                className="grid size-9 place-items-center rounded-full border border-white/80 bg-white/45 text-[#be4d69] backdrop-blur-sm transition hover:bg-white/75 sm:size-10"
+                className="grid size-9 place-items-center rounded-full border border-white/80 bg-white/45 text-[#be4d69] transition hover:bg-white/75 sm:size-10"
                 aria-label="Guardar recuerdo"
                 title="Guardar recuerdo"
               >
@@ -824,7 +834,7 @@ export default function Home() {
 
           {/* MAIN MESSAGES AREA */}
           <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-8">
-            {isLoadingSession ? (
+            {isLoadingSession || !settled ? (
               <div className="grid h-full place-items-center text-sm text-[#9e6776]">
                 <div className="flex items-center gap-3">
                   <div className="relative size-10 overflow-hidden rounded-2xl border border-[#f3d3dc] shadow-sm">
@@ -846,7 +856,7 @@ export default function Home() {
                     <button
                       key={suggestion.label}
                       onClick={() => void sendMessage(suggestion.label)}
-                      className="flex items-start gap-3 rounded-[1.25rem] border border-white/80 bg-white/50 p-3.5 text-left shadow-[0_8px_20px_-14px_rgba(122,44,67,.6)] backdrop-blur-sm transition hover:-translate-y-0.5 hover:bg-white/80 sm:p-4"
+                      className="flex items-start gap-3 rounded-[1.25rem] border border-white/80 bg-white/50 p-3.5 text-left shadow-[0_8px_20px_-14px_rgba(122,44,67,.6)] transition hover:-translate-y-0.5 hover:bg-white/80 sm:p-4"
                     >
                       <suggestion.icon size={19} strokeWidth={1.7} className="mt-0.5 shrink-0 text-[#be4d69]" />
                       <span>
@@ -862,7 +872,7 @@ export default function Home() {
                 {messages.map((message, index) => (
                   <div
                     key={message.id ?? `${message.role}-${index}`}
-                    className={`bubble-in flex items-start gap-2.5 sm:gap-3 ${message.role === "user" ? "flex-row-reverse" : ""}`}
+                    className={`${message.created_at ? "" : "bubble-in "}flex items-start gap-2.5 sm:gap-3 ${message.role === "user" ? "flex-row-reverse" : ""}`}
                   >
                     <div
                       className={`relative mt-6 grid size-8 shrink-0 place-items-center overflow-hidden rounded-full shadow-[0_0_0_2px_#fff,0_0_0_3.5px_rgba(240,202,213,.95)] sm:size-9 ${
@@ -1026,7 +1036,7 @@ export default function Home() {
               }}
               className="mx-auto max-w-3xl"
             >
-              <div className="flex items-end gap-2 rounded-[1.4rem] border border-white/90 bg-white/70 p-1.5 shadow-[0_10px_24px_-16px_rgba(122,44,67,.6)] backdrop-blur-md transition focus-within:bg-white/90 focus-within:ring-4 focus-within:ring-white/50 sm:p-2">
+              <div className="flex items-end gap-2 rounded-[1.4rem] border border-white/90 bg-white/70 p-1.5 shadow-[0_10px_24px_-16px_rgba(122,44,67,.6)] transition focus-within:bg-white/90 focus-within:ring-4 focus-within:ring-white/50 sm:p-2">
                 <textarea
                   ref={textareaRef}
                   value={input}
