@@ -279,7 +279,7 @@ export function mount(root, opts) {
     const e = state.entries[s] || { items: [], folder: null, ink: state.ink, font: state.font };
     const fold = state.folders.find((f) => f.id === e.folder);
     const items = e.items.map((it, i) => itemHtml(it, i, live)).join("");
-    const hint = e.items.length ? "" : '<div class="scrap-hint">escribe un pensamiento o pega aquí tus fotos, canciones y recuerdos de este día</div>';
+    const hint = e.items.length ? "" : SCRAP_HINT;
     const off = 'tabindex="-1"';
     return '<div class="inner" style="' + penVars(e) + '"><div class="side-switch">' + switchBtns("r", live) + "</div>" +
       '<div class="r-head"><span class="label">pedacitos de hoy</span>' + (fold ? '<button type="button" class="fold-tag" style="--fc:' + fold.color + '" ' + (live ? 'data-act="folders" data-open="' + fold.id + '"' : off) + ">" + esc(fold.name) + "</button>" : "") + "</div>" +
@@ -293,6 +293,44 @@ export function mount(root, opts) {
       "</div></div>" +
       (live ? '<button type="button" class="corner next" data-act="next" aria-label="Día siguiente" ' + (s >= TODAY ? "disabled" : "") + ">" + I.right + "</button>" : "");
   }
+  /* ---------- Tablero: solo se toca lo que cambió ---------- */
+  // Volver a pintar la hoja recargaba fotos y reproductores de Spotify que nadie había movido.
+  const SCRAP_HINT = '<div class="scrap-hint">escribe un pensamiento o pega aquí tus fotos, canciones y recuerdos de este día</div>';
+  function showRightSide() {
+    if (!isPhone() || state.side === "r") return;
+    state.side = "r";
+    $("#pageL").classList.remove("show");
+    $("#pageR").classList.add("show");
+  }
+  const htmlNode = (html) => { const box = document.createElement("div"); box.innerHTML = html; return box.firstElementChild; };
+  function appendItem(i) {
+    const it = ent(state.cur).items[i], scrap = $("#scrap");
+    scrap.querySelector(".scrap-hint")?.remove();
+    scrap.appendChild(htmlNode(itemHtml(it, i, true)));
+    delete it.fresh;
+  }
+  function removeItem(i) {
+    const scrap = $("#scrap");
+    scrap.querySelector('.it[data-i="' + i + '"]').remove();
+    scrap.querySelectorAll(".it").forEach((node, n) => {
+      node.dataset.i = n;
+      node.querySelectorAll("[data-act][data-i]").forEach((b) => { b.dataset.i = n; });
+      node.querySelectorAll("[data-cap]").forEach((c) => { c.dataset.cap = n; });
+    });
+    if (!scrap.querySelector(".it")) scrap.innerHTML = SCRAP_HINT;
+  }
+  function repaintItem(i) {
+    const node = $('#scrap .it[data-i="' + i + '"]');
+    node.replaceWith(htmlNode(itemHtml(ent(state.cur).items[i], i, true)));
+  }
+  function paintFolderTag() {
+    const head = $("#pageR .r-head");
+    if (!head) return;
+    head.querySelector(".fold-tag")?.remove();
+    const fold = state.folders.find((f) => f.id === ent(state.cur).folder);
+    if (fold) head.insertAdjacentHTML("beforeend", '<button type="button" class="fold-tag" style="--fc:' + fold.color + '" data-act="folders" data-open="' + fold.id + '">' + esc(fold.name) + "</button>");
+  }
+
   function paint() {
     const pl = $("#pageL"), pr = $("#pageR");
     pl.innerHTML = renderLeft(state.cur, true);
@@ -764,7 +802,8 @@ export function mount(root, opts) {
     if (it.type === "song") it.x = Math.min(it.x, 36);
     e.items.push(it);
     touch(state.cur);
-    if (isPhone()) { state.side = "r"; paint(); } else paintRight();
+    showRightSide();
+    appendItem(e.items.length - 1);
     refreshDesk();
   }
 
@@ -813,7 +852,7 @@ export function mount(root, opts) {
     if (at > 0) state.folders.unshift(state.folders.splice(at, 1)[0]);
     const name = id === "sueltas" ? "Hojas sueltas" : state.folders.find((f) => f.id === id)?.name;
     toast("Guardada en " + name);
-    paintRight();
+    if (s === state.cur) paintFolderTag();
     refreshDesk();
   }
 
@@ -836,7 +875,7 @@ export function mount(root, opts) {
         ent(s).folder = id === "sueltas" ? null : id;
         touch(s);
         const left = $("#ovRoot .fold-grid").scrollLeft;
-        refreshSheet(foldersHtml()); refreshDesk(); paintRight();
+        refreshSheet(foldersHtml()); refreshDesk(); if (s === state.cur) paintFolderTag();
         $("#ovRoot .fold-grid").scrollLeft = left;
         animate($(`[data-folder="${id}"]`), [{ transform: "scale(1.14) rotate(-2deg)" }, { transform: "none" }], 320);
       });
@@ -1056,11 +1095,11 @@ export function mount(root, opts) {
         if (!t) { $("#editTxt").focus(); break; }
         closeSheet();
         if (i < 0) writeDraft(noteDraft(type), "");
-        if (i >= 0) { ent(state.cur).items[i].text = t; touch(state.cur); if (isPhone()) { state.side = "r"; paint(); } else paintRight(); refreshDesk(); }
+        if (i >= 0) { ent(state.cur).items[i].text = t; touch(state.cur); showRightSide(); repaintItem(i); refreshDesk(); }
         else addItem(type === "thought" ? { type, text: t, time: state.cur === TODAY ? nowTime() : shortDate(state.cur) } : { type, text: t });
         break;
       }
-      case "rm": ent(state.cur).items.splice(+el.dataset.i, 1); touch(state.cur); paintRight(); refreshDesk(); break;
+      case "rm": { const i = +el.dataset.i; ent(state.cur).items.splice(i, 1); touch(state.cur); removeItem(i); refreshDesk(); break; }
       case "exit": flushSaves(); opts.exit(); break;
     }
   });
