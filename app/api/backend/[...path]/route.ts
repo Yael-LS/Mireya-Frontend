@@ -19,7 +19,7 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
   if (needsRefugioKey(path, request.method) && !(await isRefugioUnlocked(request))) return refugioLockedResponse();
   const hasBody = !["GET", "HEAD"].includes(request.method);
   try {
-    const upstream = await fetch(backendApiUrl(path.join("/")), {
+    const upstream = await fetch(backendApiUrl(path.join("/")) + request.nextUrl.search, {
       method: request.method,
       headers: backendHeaders(),
       body: hasBody ? await request.text() : undefined,

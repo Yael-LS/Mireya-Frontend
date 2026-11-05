@@ -589,3 +589,77 @@
 .dy .save-state.bad { color: #b3202f; font-weight: 600; white-space: normal; }
 .dy .diary-msg { display: grid; place-items: center; min-height: 100dvh; padding: 24px; text-align: center; background: var(--desk); color: var(--ink); font: 500 24px/1.25 var(--hand); }
 .dy .diary-msg button { display: block; margin: 14px auto 0; min-height: 42px; padding: 0 17px; border-radius: 10px; background: var(--ink); color: #fff; font: 600 14px/1 var(--ui); }
+
+/* Filtros en una sola fila que se desliza */
+.dy .f-scroll { flex-wrap: nowrap; }
+
+/* Colores de carpeta */
+.dy .swatches, .dy .few-colors { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.dy .few-colors[hidden] { display: none; }
+.dy .swatch-more { background: conic-gradient(#f9d5e0, #ffe3b8, #fff3b0, #d9f0c8, #c6e9ea, #b5d4ef, #d6dcf6, #f3d9fa, #f9d5e0); }
+.dy .more-colors { display: flex; flex-wrap: wrap; gap: 8px; width: 100%; padding-top: 4px; }
+.dy .more-colors[hidden] { display: none; }
+
+/* Telón azul con la clave */
+.dy-curtain { --cu-1: #6f9fce; }
+.dy-curtain .curtain { background: linear-gradient(180deg, rgba(255, 255, 255, .14), transparent 35%, rgba(25, 55, 105, .2)), repeating-linear-gradient(90deg, #6d9fce 0, #8db8df 18px, #a3c8ea 27px, #7fadd9 40px, #6d9fce 54px); }
+.dy-curtain .curtain-left { box-shadow: inset -30px 0 40px -10px rgba(25, 55, 105, .4); }
+.dy-curtain .curtain-right { box-shadow: inset 30px 0 40px -10px rgba(25, 55, 105, .4); }
+.dy-curtain .curtain-valance { filter: drop-shadow(0 8px 10px rgba(25, 55, 105, .3)); background: radial-gradient(circle at 32px 50px, #5d8fc4 32px, transparent 33px) 0 0 / 64px 84px repeat-x, linear-gradient(180deg, #4f80b6 0, #5d8fc4 44px, #e3effa 44px, #e3effa 47px, transparent 47px); }
+.dy-curtain .pin-card { background: rgba(235, 245, 255, .16); border-color: rgba(255, 255, 255, .55); text-shadow: 0 2px 10px rgba(25, 55, 105, .45); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .5), 0 30px 60px -20px rgba(25, 55, 105, .6); }
+.dy-curtain .pin-seal { background: radial-gradient(circle at 35% 30%, #fff, #cfe3f5 70%); color: #3a6ea5; border-color: #fff; }
+.dy-curtain .pin-title, .dy-curtain .pin-prompt { color: #fff; }
+.dy-curtain .pin-hint { color: #eef6ff; }
+.dy-curtain .pin-hearts svg.is-filled { color: #fff; }
+@media (max-width: 767px) {
+  .dy-curtain .curtain { background: linear-gradient(180deg, rgba(255, 255, 255, .14), transparent 35%, rgba(25, 55, 105, .2)), repeating-linear-gradient(90deg, #6d9fce 0, #8db8df 12px, #a3c8ea 18px, #7fadd9 27px, #6d9fce 36px); }
+  .dy-curtain .curtain-valance { background: radial-gradient(circle at 22px 36px, #5d8fc4 22px, transparent 23px) 0 0 / 44px 60px repeat-x, linear-gradient(180deg, #4f80b6 0, #5d8fc4 32px, #e3effa 32px, #e3effa 34px, transparent 34px); }
+}
+
+/* ---------- Celular ---------- */
+@media (max-width: 767px) {
+  .dy .strip { display: none; }
+  .dy .f-scroll { scrollbar-width: none; }
+  .dy .f-scroll::-webkit-scrollbar { display: none; }
+  .dy .desk { padding-block: 8px calc(84px + env(safe-area-inset-bottom, 0px)); }
+  .dy .top { min-height: 38px; }
+  .dy .top #btnExit { width: 38px; min-height: 38px; padding: 0; justify-content: center; border-radius: 50%; }
+  .dy .top #btnExit .lbl { display: none; }
+  .dy .top .spacer { order: 1; }
+  .dy .top .save-state { order: 2; }
+
+  /* Barra flotante */
+  .dy .bottom-nav { --nav-fill: #dcebfa; position: fixed; left: max(10px, env(safe-area-inset-left, 0px)); right: max(10px, env(safe-area-inset-right, 0px)); bottom: calc(8px + env(safe-area-inset-bottom, 0px)); z-index: 60; margin: 0; padding: 5px; gap: 2px; border-radius: 24px; background: #fff; box-shadow: 0 12px 26px -10px rgba(40, 80, 130, .55), inset 0 0 0 1px rgba(214, 228, 243, .9); }
+  .dy .bottom-nav button { position: relative; min-height: 56px; gap: 2px; border-radius: 19px; color: #6f8aa8; font: 600 10.5px/1 var(--ui); transition: background .18s, color .18s, transform .18s cubic-bezier(.3, 1.6, .5, 1); }
+  .dy .bottom-nav button:active { transform: scale(.94); }
+  .dy .bottom-nav button.on { --nav-fill: #fff; background: var(--era-soft); color: var(--era-ink); }
+
+  /* Las ventanas quedan arriba de la barra */
+  .dy .ov { bottom: calc(80px + env(safe-area-inset-bottom, 0px)); padding: 8px 8px 0; align-items: flex-end; }
+  .dy .sheet { max-height: 100%; border-radius: 20px; }
+
+  /* Calendario: como de escritorio, con espiral y hojas debajo */
+  .dy .sheet.big-cal { background: transparent; box-shadow: none; padding: 16px 2px 2px; }
+  .dy .big-cal .close { top: 26px; right: 12px; width: 34px; height: 34px; }
+  .dy .big-cal .cal { border-radius: 24px; box-shadow: 0 3px 0 #fff, 0 4px 0 #d3e3f2, 0 7px 0 #fff, 0 8px 0 #c9dcef, 0 22px 30px -16px rgba(30, 60, 100, .55); overflow: visible; }
+  .dy .big-cal .cal::before { content: ""; position: absolute; left: 14px; right: 14px; top: -13px; height: 26px; z-index: 3; background: linear-gradient(180deg, #e8eef5, #a9b9cb 55%, #dfe6ef) center / 8px 26px no-repeat; background-size: 0 0; }
+  .dy .big-cal .cal::after { content: ""; position: absolute; left: 12px; right: 12px; top: -13px; height: 26px; z-index: 3; pointer-events: none; background: radial-gradient(circle at 50% 80%, rgba(40, 60, 90, .35) 0 3.4px, transparent 3.8px) 0 0 / 38px 26px repeat-x, linear-gradient(180deg, #f3f6fa, #9fb1c6) 15px 0 / 8px 22px no-repeat; background-image: radial-gradient(circle at 50% 84%, rgba(40, 60, 90, .35) 0 3.2px, transparent 3.6px), repeating-linear-gradient(90deg, transparent 0 15px, #b6c6d8 15px 19px, #eef3f8 19px 21px, #a3b5c9 21px 23px, transparent 23px 38px); background-size: 38px 26px, 100% 20px; background-position: 0 0, 0 0; background-repeat: repeat-x, no-repeat; border-radius: 3px; }
+  .dy .big-cal .cal-photo, .dy .big-cal .cal-sheet { border-radius: 24px; }
+  .dy .big-cal .cal-sheet { padding: 28px 10px 8px; }
+  .dy .big-cal .cal-sheet > .bracelet { top: 24px; }
+  .dy .big-cal .cal-head { padding-top: 26px; }
+  .dy .big-cal .cal-change { top: 26px; left: 12px; width: 34px; min-width: 34px; height: 34px; padding: 0; font-size: 0; gap: 0; }
+  .dy .big-cal .grid { gap: 3px; padding-bottom: 6px; }
+  .dy .big-cal .day { height: 54px; border-radius: 15px; background: rgba(255, 255, 255, .34); }
+  .dy .big-cal .day.out { background: none; }
+  .dy .big-cal .grid > :nth-child(7n), .dy .big-cal .grid > :nth-child(7n - 1) { background: rgba(255, 255, 255, .58); }
+  .dy .big-cal .grid > .out:nth-child(n) { background: none; }
+  .dy .big-cal .day.sel, .dy .big-cal .grid > .sel:nth-child(n) { background: #fff; }
+  .dy .big-cal .legend { font-size: 11px; gap: 3px 10px; padding-bottom: 8px; }
+  .dy .big-cal .cal-foot { margin-top: 14px; border-radius: 18px; }
+  .dy .big-cal .year { background: #fff; border-radius: 18px; margin-top: 8px; }
+
+  /* Carpetas: el nombre con su renglón completo */
+  .dy .new-f input { flex: 1 1 100%; }
+  .dy .new-f .btn { margin-left: auto; }
+}

@@ -217,11 +217,11 @@ export function mount(root, opts) {
   const bgFor = (y, mo) => { const v = state.bgMonth[y + "-" + mo]; return v === "none" ? null : bgCss(v || state.bgAll); };
 
   /* ---------- Datos de ejemplo ---------- */
-  const COLORS = ["#cfe4f6", "#ffffff", "#b5d4ef", "#d6dcf6", "#c6e9ea", "#e3effa"];
+  const COLORS = ["#cfe4f6", "#ffffff", "#d6dcf6", "#b5d4ef", "#c6e9ea", "#f9d5e0", "#ffe3b8", "#d9f0c8", "#f3d9fa", "#ffd1c2", "#fff3b0", "#e8e4dc"];
   const SLOTS = [{ x: 3, y: 2 }, { x: 48, y: 5 }, { x: 8, y: 48 }, { x: 50, y: 47 }, { x: 28, y: 24 }, { x: 60, y: 22 }];
   const SIZE = { photo: 37, song: 62, memo: 46, thought: 45 };
   const state = {
-    eraBy: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], calSee: 30, bgUrls: {}, myBg: null, bgAll: null, bgMonth: {}, bgScope: "mes", bgFrom: null, eraFrom: null, cur: TODAY, side: "l", ink: "#27405f", font: "caveat", calY: 0, calM: 0, bigTab: "mes", search: { q: "", moods: [], month: null, has: [], folder: null }, folderView: "sueltas", newColor: COLORS[2], busy: false,
+    eraBy: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], calSee: 30, bgUrls: {}, myBg: null, bgAll: null, bgMonth: {}, bgScope: "mes", bgFrom: null, eraFrom: null, cur: TODAY, side: "l", ink: "#27405f", font: "caveat", calY: 0, calM: 0, bigTab: "mes", search: { q: "", moods: [], month: null, has: [], folder: null }, folderView: "sueltas", newColor: COLORS[0], busy: false,
     folders: [],
     entries: {}, letters: [],
   };
@@ -458,15 +458,28 @@ export function mount(root, opts) {
   }
   function refreshDesk() { renderCalSmall(); renderStrip(); renderFoldersMini(); renderLetterbox(); }
 
+  /* ---------- Barra del celular ---------- */
+  const duo = (shape) => '<svg viewBox="0 0 28 28" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.700" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + shape + "</svg>";
+  const NAV = {
+    cal: duo('<rect x="4" y="6.500" width="20" height="18" rx="4.500" fill="var(--nav-fill)"/><path d="M4 12h20M9.500 4v4.500M18.500 4v4.500"/><path d="M14 21.500c-3-2-4.200-3.300-4.200-4.800 0-1.200 1-2 2-2 .9 0 1.700.5 2.200 1.300.5-.8 1.300-1.300 2.200-1.300 1 0 2 .8 2 2 0 1.500-1.200 2.800-4.200 4.800z" fill="currentColor" stroke="none"/>'),
+    mail: duo('<rect x="3.500" y="7" width="21" height="15.500" rx="3.500" fill="var(--nav-fill)"/><path d="M4.500 8.500L14 16l9.500-7.500"/><circle cx="14" cy="16.500" r="2.600" fill="currentColor" stroke="none"/>'),
+    book: duo('<path d="M14 8c-2.600-2-6-2.500-10-2v15.500c4-.5 7.400 0 10 2 2.600-2 6-2.500 10-2V6c-4-.5-7.400 0-10 2z" fill="var(--nav-fill)"/><path d="M14 8v15.500"/><path d="M8 11c1.300-.2 2.500 0 3.500.5M8 15c1.300-.2 2.500 0 3.500.5M16.500 11.500c1-.5 2.200-.7 3.500-.5M16.500 15.500c1-.5 2.200-.7 3.500-.5"/>'),
+    folder: duo('<path d="M3.500 9a2.500 2.500 0 012.500-2.500h5l2.600 3H22A2.500 2.500 0 0124.500 12v8.500A2.500 2.500 0 0122 23H6a2.500 2.500 0 01-2.500-2.500z" fill="var(--nav-fill)"/><path d="M14 19.800c-2.300-1.500-3.300-2.600-3.300-3.700 0-1 .8-1.600 1.600-1.600.7 0 1.300.4 1.700 1 .4-.6 1-1 1.700-1 .8 0 1.600.6 1.600 1.600 0 1.100-1 2.200-3.300 3.700z" fill="currentColor" stroke="none"/>'),
+    search: duo('<circle cx="12.500" cy="12.500" r="8" fill="var(--nav-fill)"/><path d="M18.500 18.500L24 24"/><path d="M12.500 8.500l.9 2.600 2.600.9-2.600.9-.9 2.600-.9-2.600-2.600-.9 2.600-.9z" fill="currentColor" stroke="none"/>'),
+  };
+  const navBtn = (act, icon, label, kind) => '<button type="button" data-act="' + act + '" data-kind="' + kind + '">' + icon + "<span>" + label + "</span></button>";
+  function markNav(kind) { document.querySelectorAll("#bottomNav button").forEach((b) => b.classList.toggle("on", b.dataset.kind === (kind || ""))); }
+
   /* ---------- Capas ---------- */
   let lastFocus = null;
   function openSheet(kind, html) {
     if (!$("#ovRoot").firstChild) lastFocus = document.activeElement;
+    markNav(kind);
     $("#ovRoot").innerHTML = '<div class="ov" data-act="backdrop" role="dialog" aria-modal="true"><div class="sheet ' + kind + '"><button type="button" class="close" data-act="close-ov" aria-label="Cerrar">' + I.close + "</button>" + html + "</div></div>";
     const first = $("#ovRoot input, #ovRoot textarea");
     if (first && !isPhone()) first.focus();
   }
-  function closeSheet() { $("#ovRoot").innerHTML = ""; lastFocus?.focus?.(); }
+  function closeSheet() { markNav(""); $("#ovRoot").innerHTML = ""; lastFocus?.focus?.(); }
   function refreshSheet(html) { const sheet = $("#ovRoot .sheet"); const top = sheet.scrollTop; const btn = sheet.querySelector(".close").outerHTML; sheet.style.animation = "none"; sheet.innerHTML = btn + html; sheet.scrollTop = top; }
 
   function toast(text) {
@@ -597,7 +610,7 @@ export function mount(root, opts) {
     const list = rows.length ? rows.slice(0, 30).map(([s, e], i) => {
       const tags = [e.items.some((x) => x.type === "thought") ? I.pen : "", e.items.some((x) => x.type === "photo") ? I.photo : "", e.items.some((x) => x.type === "song") ? I.music : "", e.items.some((x) => x.type === "memo") ? I.memo : ""].join("");
       return '<button type="button" class="slip" style="--t:' + (i % 2 ? 3 : -3) + "deg;--r:" + ((i % 5) - 2) * .45 + "deg;--d:" + Math.min(i, 8) * .035 + 's" data-act="go" data-d="' + s + '">' + '<span class="fc">' + (moodsOf(e)[0] ? face(moodsOf(e)[0]) : "") + "</span>" + '<span class="body"><b>' + esc(fmt(s, { weekday: "long", day: "numeric", month: "long" })) + "</b><p>" + snippet(e, f.q) + '</p><span class="tags">' + tags + "</span></span></button>";
-    }).join("") : '<div class="none">No encontré esa hoja. Prueba con otra palabra o quita alguna carita.</div>';
+    }).join("") : '<div class="none">' + (active ? "No encontré esa hoja. Prueba con otra palabra o quita algún filtro." : "Todavía no hay hojas escritas. Aquí van a aparecer.") + "</div>";
     return '<h4 class="results-h">' + title + '</h4><div class="results">' + list + "</div>";
   }
   function searchFiltersHtml() {
@@ -606,14 +619,19 @@ export function mount(root, opts) {
     const months = ERAS.map((e, i) => '<button type="button" class="chip bd ' + (f.month === i ? "on" : "") + '" data-act="f-month" data-m="' + i + '">' + MONTHS[i].slice(0, 3).toUpperCase() + "</button>").join("");
     const has = [["thought", "un pensamiento", I.pen], ["photo", "una foto", I.photo], ["song", "una canción", I.music], ["memo", "un recuerdo", I.memo]].map(([k, t, ic]) => '<button type="button" class="chip ' + (f.has.includes(k) ? "on" : "") + '" data-act="f-has" data-h="' + k + '">' + ic + t + "</button>").join("");
     const folders = state.folders.map((x) => '<button type="button" class="chip fl ' + (f.folder === x.id ? "on" : "") + '" style="--c:' + x.color + '" data-act="f-folder" data-f="' + x.id + '">' + esc(x.name) + "</button>").join("");
-    return '<div class="f-row"><span class="f-label">cuando me sentí</span>' + moods + '</div><div class="f-row"><span class="f-label">en</span>' + months + '</div><div class="f-row"><span class="f-label">con</span>' + has + '</div><div class="f-row f-scroll"><span class="f-label">guardada en</span>' + folders + "</div>";
+    return '<div class="f-row f-scroll"><span class="f-label">cuando me sentí</span>' + moods + '</div><div class="f-row f-scroll"><span class="f-label">en</span>' + months + '</div><div class="f-row f-scroll"><span class="f-label">con</span>' + has + '</div><div class="f-row f-scroll"><span class="f-label">guardada en</span>' + folders + "</div>";
   }
   function openSearch() {
-    openSheet("search", '<h2>¿Qué hoja estás buscando?</h2><p class="sub">Escribe una palabra, una canción o una fecha, como “12 nov”.</p><div class="q-wrap">' + I.search + '<input id="q" class="q" placeholder="el cielo, Morat, noviembre…" autocomplete="off" aria-label="Buscar en mi diario" value="' + esc(state.search.q) + '"></div><div id="sFilters">' + searchFiltersHtml() + '</div><div id="sResults">' + resultsHtml() + "</div>");
+    openSheet("search", '<h2>¿Qué hoja estás buscando?</h2><div class="q-wrap">' + I.search + '<input id="q" class="q" placeholder="el cielo, Morat, noviembre…" autocomplete="off" aria-label="Buscar en mi diario" value="' + esc(state.search.q) + '"></div><div id="sFilters">' + searchFiltersHtml() + '</div><div id="sResults">' + resultsHtml() + "</div>");
   }
   function refreshSearch(filters) { if (filters) $("#sFilters").innerHTML = searchFiltersHtml(); $("#sResults").innerHTML = resultsHtml(); }
 
   /* Carpetitas */
+  function swatchesHtml() {
+    const dot = (c) => '<button type="button" class="swatch ' + (state.newColor === c ? "on" : "") + '" style="--c:' + c + '" data-act="swatch" data-c="' + c + '" aria-label="Color"></button>';
+    const first = COLORS.includes(state.newColor) && COLORS.indexOf(state.newColor) > 2 ? [COLORS[0], COLORS[1], state.newColor] : COLORS.slice(0, 3);
+    return '<span class="few-colors" id="fewColors">' + first.map(dot).join("") + '<button type="button" class="swatch swatch-more" data-act="swatch-more" aria-label="Más colores"></button></span><span class="more-colors" id="moreColors" hidden>' + COLORS.map(dot).join("") + "</span>";
+  }
   function foldersHtml() {
     const counts = {};
     let loose = 0;
@@ -624,7 +642,7 @@ export function mount(root, opts) {
     const list = rows.filter(([, e]) => (v === "sueltas" ? !e.folder : e.folder === v)).sort((a, b) => (a[0] < b[0] ? 1 : -1));
     const name = v === "sueltas" ? "Hojas sueltas" : state.folders.find((f) => f.id === v)?.name;
     const cards = list.length ? list.map(([s, e]) => '<div class="card" data-card="' + s + '">' + (moodsOf(e)[0] ? '<span class="fc">' + face(moodsOf(e)[0]) + "</span>" : "") + '<span class="body"><b>' + esc(fmt(s, { day: "numeric", month: "long" })) + "</b><p>" + esc((e.day || thoughtText(e) || "Hoja con cosas pegadas").slice(0, 70)) + '</p></span><span class="gr" aria-hidden="true" style="width:28px">' + I.grip.replace("<svg", '<svg width="18" height="18"') + "</span></div>").join("") : '<div class="none" style="padding:16px">Esta carpetita está vacía. Arrastra una hoja hasta aquí.</div>';
-    return '<h2>Mis carpetitas</h2><p class="sub">Agarra una hoja y suéltala en la carpetita que quieras.</p><div class="fold-grid">' + grid + '</div><form class="new-f" data-form="folder"><input id="newFolder" placeholder="Nombre de una carpetita nueva" maxlength="26" aria-label="Nombre de la carpetita">' + COLORS.map((c) => '<button type="button" class="swatch ' + (state.newColor === c ? "on" : "") + '" style="--c:' + c + '" data-act="swatch" data-c="' + c + '" aria-label="Color"></button>').join("") + '<button type="submit" class="btn ghost">Crear</button></form><h4 class="results-h" style="margin-top:18px">' + esc(name) + '</h4><div class="cards">' + cards + "</div>";
+    return '<h2>Mis carpetitas</h2><p class="sub">Agarra una hoja y suéltala en la carpetita que quieras.</p><div class="fold-grid">' + grid + '</div><form class="new-f" data-form="folder"><input id="newFolder" placeholder="Nueva carpetita" maxlength="26" aria-label="Nombre de la carpetita">' + '<span id="swatchBox" class="swatches">' + swatchesHtml() + "</span>" + '<button type="submit" class="btn ghost">Crear</button></form><h4 class="results-h" style="margin-top:18px">' + esc(name) + '</h4><div class="cards">' + cards + "</div>";
   }
 
   /* Cartas */
@@ -913,7 +931,7 @@ export function mount(root, opts) {
         break;
       case "open-book": openBook(); break;
       case "toggle-book": closed ? openBook() : closeBook(); break;
-      case "today": go(TODAY); break;
+      case "today": closeSheet(); go(TODAY); break;
       case "prev": flipTo(addDays(state.cur, -1)); break;
       case "next": if (state.cur < TODAY) flipTo(addDays(state.cur, 1)); break;
       case "side": flipSidePhone(el.dataset.s); break;
@@ -979,7 +997,8 @@ export function mount(root, opts) {
       case "go": go(el.dataset.d); break;
       case "folders": state.folderView = el.dataset.open || "sueltas"; openSheet("drawer-big", foldersHtml()); break;
       case "fv": { const left = $("#ovRoot .fold-grid").scrollLeft; state.folderView = el.dataset.v; refreshSheet(foldersHtml()); $("#ovRoot .fold-grid").scrollLeft = left; break; }
-      case "swatch": state.newColor = el.dataset.c; document.querySelectorAll(".swatch").forEach((b) => b.classList.toggle("on", b === el)); break;
+      case "swatch": state.newColor = el.dataset.c; $("#swatchBox").innerHTML = swatchesHtml(); break;
+      case "swatch-more": $("#moreColors").hidden = false; $("#fewColors").hidden = true; break;
       case "letters": draft = null; openSheet("letters", lettersHtml()); break;
       case "read-letter": readLetter(el.dataset.l); break;
       case "compose": { const to = addDays(TODAY, 30), d = parse(to); draft = { text: "", to, sealed: true, y: d.getFullYear(), m: d.getMonth(), ink: state.ink, font: state.font }; openSheet("compose", composeHtml()); break; }
@@ -1249,16 +1268,20 @@ export function mount(root, opts) {
     } catch {
       root.innerHTML = '<div class="diary-msg"><div>No pude abrir tu diario. Revisa tu conexión e intenta otra vez.<button type="button" id="diaryRetry">Intentar otra vez</button></div></div>';
       $("#diaryRetry").addEventListener("click", () => { cleanup(); mount(root, opts); });
+      opts.onReady?.();
       return;
     }
     const d = parse(TODAY);
     state.calY = d.getFullYear(); state.calM = d.getMonth();
     $("#btnToday").innerHTML = I.sun + "Hoy";
     $("#btnSearch").innerHTML = I.search + "Buscar";
-    $("#btnExit").innerHTML = I.left + "Volver al chat";
-    $("#bottomNav").innerHTML = '<button type="button" data-act="today">' + I.book + 'Hoy</button><button type="button" data-act="calendar">' + I.cal + 'Calendario</button><button type="button" data-act="letters">' + I.mail + 'Cartas</button><button type="button" data-act="folders">' + I.folder + 'Carpetitas</button><button type="button" data-act="search">' + I.search + "Buscar</button>";
+    $("#btnExit").innerHTML = I.left + '<span class="lbl">Volver al chat</span>';
+    $("#btnExit").setAttribute("aria-label", "Volver al chat");
+    $("#bottomNav").innerHTML = navBtn("calendar", NAV.cal, "Calendario", "big-cal") + navBtn("letters", NAV.mail, "Cartas", "letters") + navBtn("today", NAV.book, "Hoy", "") + navBtn("folders", NAV.folder, "Carpetitas", "drawer-big") + navBtn("search", NAV.search, "Buscar", "search");
     paintCover();
+    markNav("");
     paint();
+    opts.onReady?.();
     listen(window, "pagehide", flushSaves);
     listen(document, "visibilitychange", () => { if (document.hidden) flushSaves(); });
     refreshDesk();
