@@ -2,7 +2,7 @@
 // El diario de Mireya. Es una interfaz muy manual (hoja que da la vuelta, stickers, sobres), así que
 // se maneja directo sobre el DOM en lugar de con estado de React.
 
-const MARKUP = '<div class="desk" id="desk">\n  <div class="top">\n        <span class="spacer"></span>\n    <button class="tool" data-act="today" type="button" id="btnToday"></button>\n    <button class="tool" data-act="search" type="button" id="btnSearch"></button>\n    <span class="save-state" id="saveState" role="status"></span>\n    <button class="tool" data-act="exit" type="button" id="btnExit"></button>\n    <button class="tool" data-act="done" type="button" id="btnDone">Listo</button>\n    <button class="tool" data-act="toggle-book" type="button" id="btnClose"></button>\n  </div>\n  <div class="strip" id="strip"></div>\n  <div class="layout">\n    <div class="book-col">\n      <div class="book closed" id="book">\n        <div class="board board-l"></div><div class="board board-r"></div>\n        <div class="edges l"></div><div class="edges r"></div>\n        <div class="page left" id="pageL"></div>\n        <div class="page right" id="pageR"></div>\n        <div class="spine"></div>\n        <div class="ribbon"></div>\n        <div class="cover" id="cover" data-act="open-book" role="button" tabindex="0" aria-label="Abrir el diario">\n          <div class="cf" id="coverFront"><h2>El diario de Mireya</h2><p>Una aventura que vale la pena recordar</p><span class="tap">Toca para abrirlo</span></div>\n          <div class="cb" id="coverBack"></div>\n        </div>\n      </div>\n      <div class="deco" id="deco" aria-hidden="true"></div>\n    </div>\n    <aside class="side" aria-label="Calendario, carpetitas y cartas">\n      <div class="wall"><span class="nail"></span><div id="calSmall"></div></div>\n      <div class="drawer"><h3 style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">Mis carpetitas<button type="button" data-act="folders" style="font:600 12px/1 var(--ui);color:var(--era-ink)">+ crear otra</button></h3><div class="folders-mini" id="foldersMini"></div></div>\n      <button class="letterbox" type="button" data-act="letters" id="letterbox"></button>\n    </aside>\n  </div>\n  <nav class="bottom-nav" id="bottomNav" aria-label="Secciones"></nav>\n</div>\n<input type="file" id="photoInput" accept="image/*" hidden>\n<input type="file" id="bgInput" accept="image/*" hidden>\n<div id="ovRoot"></div>';
+const MARKUP = '<div class="desk" id="desk">\n  <div class="top">\n        <span class="spacer"></span>\n    <button class="tool" data-act="today" type="button" id="btnToday"></button>\n    <button class="tool" data-act="search" type="button" id="btnSearch"></button>\n    <span class="save-state" id="saveState" role="status"></span>\n    <button class="tool" data-act="exit" type="button" id="btnExit"></button>\n    <button class="tool" data-act="change-pin" type="button" id="btnKey"></button>\n    <button class="tool" data-act="done" type="button" id="btnDone">Listo</button>\n    <button class="tool" data-act="toggle-book" type="button" id="btnClose"></button>\n  </div>\n  <div class="strip" id="strip"></div>\n  <div class="layout">\n    <div class="book-col">\n      <div class="book closed" id="book">\n        <div class="board board-l"></div><div class="board board-r"></div>\n        <div class="edges l"></div><div class="edges r"></div>\n        <div class="page left" id="pageL"></div>\n        <div class="page right" id="pageR"></div>\n        <div class="spine"></div>\n        <div class="ribbon"></div>\n        <div class="cover" id="cover" data-act="open-book" role="button" tabindex="0" aria-label="Abrir el diario">\n          <div class="cf" id="coverFront"><h2>El diario de Mireya</h2><p>Una aventura que vale la pena recordar</p><span class="tap">Toca para abrirlo</span></div>\n          <div class="cb" id="coverBack"></div>\n        </div>\n      </div>\n      <div class="deco" id="deco" aria-hidden="true"></div>\n    </div>\n    <aside class="side" aria-label="Calendario, carpetitas y cartas">\n      <div class="wall"><span class="nail"></span><div id="calSmall"></div></div>\n      <div class="drawer"><h3 style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">Mis carpetitas<button type="button" data-act="folders" style="font:600 12px/1 var(--ui);color:var(--era-ink)">+ crear otra</button></h3><div class="folders-mini" id="foldersMini"></div></div>\n      <button class="letterbox" type="button" data-act="letters" id="letterbox"></button>\n    </aside>\n  </div>\n  <nav class="bottom-nav" id="bottomNav" aria-label="Secciones"></nav>\n</div>\n<input type="file" id="photoInput" accept="image/*" hidden>\n<input type="file" id="bgInput" accept="image/*" hidden>\n<div id="ovRoot"></div>';
 
 export function mount(root, opts) {
   root.innerHTML = MARKUP;
@@ -30,6 +30,8 @@ export function mount(root, opts) {
     left: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>',
     right: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>',
     search: '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/></svg>',
+    trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.900" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9.500 7V4.500h5V7M6.500 7l1 13h9l1-13M10 11v5.500M14 11v5.500"/></svg>',
+    key: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="15.500" r="4.500"/><path d="M11.500 12L20 3.500M16 7.500l3 3"/></svg>',
     pen: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l1-4L16.500 4.500a2 2 0 013 3L8 19z"/></svg>',
     rotate: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 11-2.500-5.800M20 3v4.500h-4.500"/></svg>',
     resize: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 19L19 5M12 5h7v7M12 19H5v-7"/></svg>',
@@ -675,6 +677,58 @@ export function mount(root, opts) {
   function refreshSearch(filters) { if (filters) $("#sFilters").innerHTML = searchFiltersHtml(); $("#sResults").innerHTML = resultsHtml(); }
 
   /* Carpetitas */
+  function folderHeadHtml(name, v) {
+    if (v === "sueltas") return '<div class="fold-head"><h4 class="results-h">' + esc(name) + "</h4></div>";
+    if (state.folderEdit === "rename") return '<form class="fold-head fold-rename" data-form="rename"><input id="renameFolder" value="' + esc(name) + '" maxlength="26" aria-label="Nuevo nombre de la carpetita"><button type="submit" class="btn">Guardar</button><button type="button" class="btn ghost" data-act="folder-cancel">Cancelar</button></form>';
+    if (state.folderEdit === "delete") return '<div class="fold-confirm" role="alert"><p>¿Borrar <b>' + esc(name) + '</b>? Tus hojas no se borran: quedan en Hojas sueltas.</p><div><button type="button" class="btn" data-act="folder-delete-yes">Borrar carpetita</button><button type="button" class="btn ghost" data-act="folder-cancel">Cancelar</button></div></div>';
+    return '<div class="fold-head"><h4 class="results-h">' + esc(name) + '</h4><button type="button" class="fold-act" data-act="folder-rename" aria-label="Cambiarle el nombre" title="Cambiarle el nombre">' + I.pen + '</button><button type="button" class="fold-act" data-act="folder-delete" aria-label="Borrar carpetita" title="Borrar carpetita">' + I.trash + "</button></div>";
+  }
+  function refreshFolders() {
+    const left = $("#ovRoot .fold-grid")?.scrollLeft ?? 0;
+    refreshSheet(foldersHtml());
+    $("#ovRoot .fold-grid").scrollLeft = left;
+  }
+  function renameFolder() {
+    const f = state.folders.find((x) => x.id === state.folderView), name = $("#renameFolder").value.trim();
+    if (!f || !name) return $("#renameFolder").focus();
+    send("/folders/" + f.id, "PATCH", { name }).then(() => {
+      f.name = name;
+      state.folderEdit = null;
+      refreshFolders(); refreshDesk(); paintFolderTag();
+    }).catch(() => toast("No pude cambiarle el nombre. Intenta otra vez."));
+  }
+  function deleteFolder() {
+    const id = state.folderView;
+    api("/folders/" + id, { method: "DELETE" }).then(() => {
+      state.folders = state.folders.filter((f) => f.id !== id);
+      Object.values(state.entries).forEach((e) => { if (e.folder === id) e.folder = null; });
+      if (state.search.folder === id) state.search.folder = null;
+      state.folderView = "sueltas";
+      state.folderEdit = null;
+      refreshFolders(); refreshDesk(); paintFolderTag();
+      toast("Carpetita borrada. Tus hojas siguen en Hojas sueltas.");
+    }).catch(() => toast("No pude borrarla. Intenta otra vez."));
+  }
+
+  /* Cambiar la clave */
+  function pinSheetHtml(hint) {
+    const field = (id, label, auto) => '<label class="pin-field" for="' + id + '">' + label + '<input id="' + id + '" type="password" inputmode="numeric" maxlength="6" autocomplete="' + auto + '"></label>';
+    return '<h2>Mi clave</h2><p class="sub">Solo tú la sabes. Son 6 números.</p><form class="pin-form" data-form="pin">' + field("pinNow", "Clave actual", "current-password") + field("pinNew", "Clave nueva", "new-password") + field("pinAgain", "Repite la clave nueva", "new-password") +
+      '<label class="pin-field" for="pinHint">Pista, para que no se te olvide<input id="pinHint" maxlength="200" value="' + esc(hint) + '"></label><p class="pin-error" id="pinError" role="alert"></p><div class="actions"><button type="submit" class="btn" id="pinSave">Guardar mi clave</button></div></form>';
+  }
+  async function savePin() {
+    const now = $("#pinNow").value, next = $("#pinNew").value, hint = $("#pinHint").value.trim(), err = $("#pinError"), btn = $("#pinSave");
+    err.textContent = "";
+    if (!/^\d{6}$/.test(next)) return (err.textContent = "La clave nueva debe tener 6 números.");
+    if (next !== $("#pinAgain").value) return (err.textContent = "Las claves nuevas no coinciden.");
+    if (!hint) return (err.textContent = "Escribe una pista para que no se te olvide.");
+    btn.disabled = true;
+    const res = await fetch("/api/diario-lock", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ current_pin: now, new_pin: next, hint }) }).catch(() => null);
+    if (!$("#pinSave")) return;
+    btn.disabled = false;
+    if (res?.ok) { closeSheet(); toast("Listo, tu clave cambió."); return; }
+    err.textContent = res?.status === 429 ? "Demasiados intentos. Espera un minuto." : res?.status === 401 ? "La clave actual no es correcta." : "No se pudo cambiar. Intenta otra vez.";
+  }
   function swatchesHtml() {
     const dot = (c) => '<button type="button" class="swatch ' + (state.newColor === c ? "on" : "") + '" style="--c:' + c + '" data-act="swatch" data-c="' + c + '" aria-label="Color"></button>';
     const first = COLORS.includes(state.newColor) && COLORS.indexOf(state.newColor) > 2 ? [COLORS[0], COLORS[1], state.newColor] : COLORS.slice(0, 3);
@@ -690,7 +744,7 @@ export function mount(root, opts) {
     const list = rows.filter(([, e]) => (v === "sueltas" ? !e.folder : e.folder === v)).sort((a, b) => (a[0] < b[0] ? 1 : -1));
     const name = v === "sueltas" ? "Hojas sueltas" : state.folders.find((f) => f.id === v)?.name;
     const cards = list.length ? list.map(([s, e]) => '<div class="card" data-card="' + s + '">' + (moodsOf(e)[0] ? '<span class="fc">' + face(moodsOf(e)[0]) + "</span>" : "") + '<span class="body"><b>' + esc(fmt(s, { day: "numeric", month: "long" })) + "</b><p>" + esc((e.day || thoughtText(e) || "Hoja con cosas pegadas").slice(0, 70)) + '</p></span><span class="gr" aria-hidden="true" style="width:28px">' + I.grip.replace("<svg", '<svg width="18" height="18"') + "</span></div>").join("") : '<div class="none" style="padding:16px">Esta carpetita está vacía. Arrastra una hoja hasta aquí.</div>';
-    return '<h2>Mis carpetitas</h2><p class="sub">Agarra una hoja y suéltala en la carpetita que quieras.</p><div class="fold-grid">' + grid + '</div><form class="new-f" data-form="folder"><input id="newFolder" placeholder="Nueva carpetita" maxlength="26" aria-label="Nombre de la carpetita">' + '<span id="swatchBox" class="swatches">' + swatchesHtml() + "</span>" + '<button type="submit" class="btn ghost">Crear</button></form><h4 class="results-h" style="margin-top:18px">' + esc(name) + '</h4><div class="cards">' + cards + "</div>";
+    return '<h2>Mis carpetitas</h2><p class="sub">Agarra una hoja y suéltala en la carpetita que quieras.</p><div class="fold-grid">' + grid + '</div><form class="new-f" data-form="folder"><input id="newFolder" placeholder="Nueva carpetita" maxlength="26" aria-label="Nombre de la carpetita">' + '<span id="swatchBox" class="swatches">' + swatchesHtml() + "</span>" + '<button type="submit" class="btn ghost">Crear</button></form>' + folderHeadHtml(name, v) + '<div class="cards">' + cards + "</div>";
   }
 
   /* Cartas */
@@ -1060,8 +1114,16 @@ export function mount(root, opts) {
       case "f-has": { const f = state.search.has, k = el.dataset.h; f.includes(k) ? f.splice(f.indexOf(k), 1) : f.push(k); refreshSearch(true); break; }
       case "f-folder": { const v = el.dataset.f; state.search.folder = state.search.folder === v ? null : v; refreshSearch(true); break; }
       case "go": go(el.dataset.d); break;
-      case "folders": state.folderView = el.dataset.open || "sueltas"; openSheet("drawer-big", foldersHtml()); break;
-      case "fv": { const left = $("#ovRoot .fold-grid").scrollLeft; state.folderView = el.dataset.v; refreshSheet(foldersHtml()); $("#ovRoot .fold-grid").scrollLeft = left; break; }
+      case "folders": state.folderView = el.dataset.open || "sueltas"; state.folderEdit = null; openSheet("drawer-big", foldersHtml()); break;
+      case "fv": state.folderView = el.dataset.v; state.folderEdit = null; refreshFolders(); break;
+      case "folder-rename": state.folderEdit = "rename"; refreshFolders(); $("#renameFolder").focus(); break;
+      case "folder-delete": state.folderEdit = "delete"; refreshFolders(); break;
+      case "folder-cancel": state.folderEdit = null; refreshFolders(); break;
+      case "folder-delete-yes": deleteFolder(); break;
+      case "change-pin":
+        openSheet("pin-sheet", pinSheetHtml(""));
+        fetch("/api/diario-lock", { cache: "no-store" }).then((r) => r.json()).then(({ hint }) => { const box = $("#pinHint"); if (box && !box.value) box.value = hint || ""; }).catch(() => {});
+        break;
       case "swatch": state.newColor = el.dataset.c; $("#swatchBox").innerHTML = swatchesHtml(); break;
       case "swatch-more": $("#moreColors").hidden = false; $("#fewColors").hidden = true; break;
       case "letters": draft = null; openSheet("letters", lettersHtml()); break;
@@ -1125,6 +1187,8 @@ export function mount(root, opts) {
     if (t.id === "songQ") searchSongs(t.value);
   });
   listen(document, "submit", (ev) => {
+    if (ev.target.dataset.form === "rename") { ev.preventDefault(); renameFolder(); return; }
+    if (ev.target.dataset.form === "pin") { ev.preventDefault(); savePin(); return; }
     if (ev.target.dataset.form !== "folder") return;
     ev.preventDefault();
     const inp = $("#newFolder"), name = inp.value.trim();
@@ -1354,6 +1418,8 @@ export function mount(root, opts) {
     $("#btnSearch").innerHTML = I.search + "Buscar";
     $("#btnExit").innerHTML = I.left + '<span class="lbl">Volver al chat</span>';
     $("#btnExit").setAttribute("aria-label", "Volver al chat");
+    $("#btnKey").innerHTML = I.key + '<span class="lbl">Mi clave</span>';
+    $("#btnKey").setAttribute("aria-label", "Cambiar mi clave");
     $("#bottomNav").innerHTML = navBtn("calendar", NAV.cal, "Calendario", "big-cal") + navBtn("letters", NAV.mail, "Cartas", "letters") + navBtn("today", NAV.book, "Hoy", "") + navBtn("folders", NAV.folder, "Carpetitas", "drawer-big") + navBtn("search", NAV.search, "Buscar", "search");
     paintCover();
     markNav("");

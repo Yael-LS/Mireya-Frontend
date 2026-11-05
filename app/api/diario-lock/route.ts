@@ -39,3 +39,13 @@ export async function POST(request: NextRequest) {
   }
   return openDiary({ unlocked: true });
 }
+
+// Cambiar la clave y la pista (pide la clave actual).
+export async function PATCH(request: NextRequest) {
+  if (!(await isUnlocked(request))) return lockedResponse();
+  const upstream = await backend("/change", { method: "POST", body: await request.text() }).catch(() => null);
+  if (!upstream) return Response.json({ detail: "No fue posible conectar con Mireya AI." }, { status: 502 });
+  const payload = await upstream.json().catch(() => ({}));
+  if (!upstream.ok) return Response.json(payload, { status: upstream.status });
+  return openDiary({ ok: true });
+}
