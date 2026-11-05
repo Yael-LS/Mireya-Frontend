@@ -4,7 +4,7 @@ import { FormEvent, KeyboardEvent, useCallback, useEffect, useRef, useState } fr
 import type { ComponentProps, ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import {
+import { BookHeart,
   ArrowUp,
   BrainCircuit,
   Camera,
@@ -716,6 +716,14 @@ export default function Home() {
             >
               <TulipIcon size={17} className="text-[#d9567a]" />
               El Refugio
+            </Link>
+
+            <Link
+              href="/diario"
+              className="mt-2.5 flex items-center justify-center gap-2 rounded-full border border-white/80 bg-[#dcebfa]/70 px-4 py-2.5 text-sm text-[#3a6ea5] transition hover:bg-[#dcebfa]"
+            >
+              <BookHeart size={17} />
+              Mi diario
             </Link>
 
             <button
