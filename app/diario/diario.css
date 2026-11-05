@@ -710,7 +710,9 @@
   .dy .desk.is-closed #btnClose, .dy #btnDone { display: none !important; }
   .dy .save-state { display: none; }
   .dy .save-state.bad { display: block; position: fixed; left: 16px; right: 16px; bottom: calc(92px + env(safe-area-inset-bottom, 0px)); z-index: 40; padding: 8px 12px; border-radius: 12px; background: #fff; text-align: center; box-shadow: 0 8px 18px -8px rgba(40, 80, 130, .6); }
-  .dy .inner, .dy .left .inner, .dy .right .inner { padding-top: 34px; }
+  /* Justo debajo de los botones que flotan en las esquinas */
+  .dy .inner, .dy .left .inner { padding-top: 10px; gap: 7px; }
+  .dy .right .inner { padding-top: 26px; gap: 7px; }
   .dy .ribbon { display: none; }
   .dy .r-head { justify-content: flex-end; min-height: 0; }
   .dy .r-head .label { display: none; }
