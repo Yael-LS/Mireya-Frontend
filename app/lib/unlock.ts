@@ -58,3 +58,29 @@ export async function isRefugioUnlocked(request: NextRequest): Promise<boolean> 
 export function refugioLockedResponse() {
   return Response.json({ detail: "El Refugio está cerrado: escribe su clave." }, { status: 401 });
 }
+
+// ---------- Clave del diario ----------
+// Igual que la del Refugio, pero las 2 h cuentan desde la última vez que lo usó.
+const DIARY_COOKIE = "mireya_diario";
+const DIARY_TTL_SECONDS = 2 * 60 * 60;
+
+async function diaryToken(issuedAt: number): Promise<string> {
+  const secret = `${configuredPin() ?? ""}:${process.env.PIN_SECRET ?? ""}:diario`;
+  return `${issuedAt}.${await hmac(secret, `diario:${issuedAt}`)}`;
+}
+
+export async function diaryCookie(): Promise<string> {
+  const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
+  return `${DIARY_COOKIE}=${await diaryToken(Math.floor(Date.now() / 1000))}; Path=/; HttpOnly; SameSite=Lax${secure}`;
+}
+
+export async function isDiaryUnlocked(request: NextRequest): Promise<boolean> {
+  const value = request.cookies.get(DIARY_COOKIE)?.value;
+  const issuedAt = Number(value?.split(".")[0]);
+  if (!value || !issuedAt || Date.now() / 1000 - issuedAt > DIARY_TTL_SECONDS) return false;
+  return value === (await diaryToken(issuedAt));
+}
+
+export function diaryLockedResponse() {
+  return Response.json({ detail: "El diario está cerrado: escribe su clave." }, { status: 401 });
+}

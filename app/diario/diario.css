@@ -696,7 +696,7 @@
 .dy .track-skel u { width: 40%; }
 @keyframes track-pulse { to { opacity: .45; } }
 
-.dy #btnDone, .dy .page-foot { display: none; }
+.dy #btnDone { display: none; }
 
 @media (max-width: 767px) {
   /* El diario queda centrado, con marco, y los botones flotan sobre sus esquinas */
@@ -716,17 +716,14 @@
   .dy .r-head .label { display: none; }
   .dy .book { touch-action: pan-y; }
   .dy .lined { touch-action: pan-y; }
-  .dy .page-foot { flex: none; display: flex; justify-content: space-between; gap: 8px; margin-top: 2px; }
-  .dy .page-foot button { display: inline-flex; align-items: center; gap: 3px; min-height: 34px; padding: 0 9px; border-radius: 99px; color: var(--era-ink); font: 600 12px/1 var(--ui); }
-  .dy .page-foot button:active { background: var(--era-soft); }
-  .dy .page-foot button[disabled] { opacity: .3; }
-  .dy .page-foot svg { width: 14px; height: 14px; }
+  .dy .top #btnClose { width: 38px; padding: 0; justify-content: center; border-radius: 50%; }
+  .dy .top #btnClose .lbl { display: none; }
 
   /* Modo escritura: sin barra, y todo cabe arriba del teclado */
   .dy.is-writing .bottom-nav, .dy.is-writing #btnClose { display: none !important; }
   .dy.is-writing #btnDone { display: inline-flex !important; }
   .dy.is-writing .desk { position: fixed; top: var(--vvt, 0); left: 0; right: 0; height: var(--vvh, 100dvh); min-height: 0; padding-bottom: 12px; }
-  .dy.is-writing .page-foot, .dy.is-writing .page-tools { display: none; }
+  .dy.is-writing .page-tools { display: none; }
   .dy.is-writing .ov { top: var(--vvt, 0); bottom: auto; height: var(--vvh, 100dvh); padding: 8px; align-items: flex-start; }
   .dy.is-writing .sheet { max-height: 100%; }
   .dy .ov-song-sheet { align-items: flex-start; }

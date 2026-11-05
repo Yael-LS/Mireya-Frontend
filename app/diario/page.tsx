@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { softNavigate } from "../components/PageVeil";
 import PinPad from "../components/PinPad";
 import { SKIP_CURTAIN_KEY } from "../components/WelcomeCurtain";
@@ -11,12 +12,11 @@ const OPEN_DURATION_MS = 2800;
 // Si algo tarda de más, el telón se abre de todos modos.
 const MAX_WAIT_MS = 6000;
 
-type Phase = "locked" | "opening" | "gone";
+type Phase = "checking" | "locked" | "opening" | "gone";
 
-// Por ahora usa la misma clave del sitio; después tendrá la suya.
 const checkPin = async (pin: string) =>
   (
-    await fetch("/api/unlock", {
+    await fetch("/api/diario-lock", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ pin }),
@@ -24,10 +24,13 @@ const checkPin = async (pin: string) =>
   ).ok;
 
 export default function DiarioPage() {
+  const router = useRouter();
   const rootRef = useRef<HTMLDivElement>(null);
   const cleanupRef = useRef<(() => void) | null>(null);
   const readyRef = useRef<Promise<void> | null>(null);
-  const [phase, setPhase] = useState<Phase>("locked");
+  const [phase, setPhase] = useState<Phase>("checking");
+  const [hint, setHint] = useState<string | null>(null);
+  const [byPin, setByPin] = useState(false);
 
   // El diario se prepara detrás del telón, para que al abrirse ya esté completo.
   const prepare = useCallback(() => {
@@ -48,31 +51,43 @@ export default function DiarioPage() {
     return readyRef.current;
   }, []);
 
+  const open = useCallback(
+    (pauseMs: number) => {
+      const pause = new Promise((resolve) => setTimeout(resolve, pauseMs));
+      const limit = new Promise((resolve) => setTimeout(resolve, MAX_WAIT_MS));
+      void Promise.race([Promise.all([pause, prepare()]), limit]).then(() => {
+        if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return setPhase("gone");
+        setPhase("opening");
+        setTimeout(() => setPhase("gone"), OPEN_DURATION_MS);
+      });
+    },
+    [prepare]
+  );
+
   useEffect(() => {
     let cancelled = false;
-    void fetch("/api/unlock", { cache: "no-store" })
-      .then((response) => response.json())
-      .then(({ unlocked }) => {
-        if (unlocked && !cancelled) void prepare();
+    void fetch("/api/diario-lock", { cache: "no-store" })
+      .then(async (response) => {
+        if (cancelled) return;
+        if (response.status === 401) return router.replace("/");
+        const status = await response.json().catch(() => null);
+        setHint(status?.hint ?? null);
+        if (status?.unlocked) open(0);
+        else setPhase("locked");
       })
-      .catch(() => null);
+      .catch(() => !cancelled && setPhase("locked"));
     return () => {
       cancelled = true;
       cleanupRef.current?.();
       cleanupRef.current = null;
       readyRef.current = null;
     };
-  }, [prepare]);
+  }, [open, router]);
 
   const accepted = useCallback(() => {
-    const pause = new Promise((resolve) => setTimeout(resolve, UNLOCKED_PAUSE_MS));
-    const limit = new Promise((resolve) => setTimeout(resolve, MAX_WAIT_MS));
-    void Promise.race([Promise.all([pause, prepare()]), limit]).then(() => {
-      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return setPhase("gone");
-      setPhase("opening");
-      setTimeout(() => setPhase("gone"), OPEN_DURATION_MS);
-    });
-  }, [prepare]);
+    setByPin(true);
+    open(UNLOCKED_PAUSE_MS);
+  }, [open]);
 
   return (
     <>
@@ -82,15 +97,18 @@ export default function DiarioPage() {
           <div className="curtain curtain-left" />
           <div className="curtain curtain-right" />
           <div className="curtain-valance" />
-          <div className="curtain-seal-wrap">
-            <PinPad
-              onSubmit={checkPin}
-              onSuccess={accepted}
-              seal={<span className="pin-seal">M</span>}
-              title="El diario de Mireya"
-              prompt="escribe tu clave secreta"
-            />
-          </div>
+          {(phase === "locked" || byPin) && (
+            <div className="curtain-seal-wrap">
+              <PinPad
+                onSubmit={checkPin}
+                onSuccess={accepted}
+                seal={<span className="pin-seal">M</span>}
+                title="El diario de Mireya"
+                prompt="escribe tu clave secreta"
+                hint={hint}
+              />
+            </div>
+          )}
         </div>
       )}
     </>

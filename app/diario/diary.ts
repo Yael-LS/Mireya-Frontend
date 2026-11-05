@@ -8,7 +8,7 @@ export function mount(root, opts) {
   root.innerHTML = MARKUP;
   const offs = [];
   const listen = (target, type, fn, o) => { target.addEventListener(type, fn, o); offs.push(() => target.removeEventListener(type, fn, o)); };
-  const cleanup = () => { offs.forEach((off) => off()); root.innerHTML = ""; };
+  const cleanup = () => { flushSaves(); offs.forEach((off) => off()); root.innerHTML = ""; };
 
   /* ---------- Utilidades ---------- */
   const pubImg = (n) => "/_next/image?url=" + encodeURIComponent("/" + n + ".png") + "&w=640&q=75";
@@ -91,7 +91,11 @@ export function mount(root, opts) {
     if (!days.length) return;
     dirty.clear();
     const failed = [];
-    await Promise.all(days.map((d) => send("/entries/" + d, "PATCH", entryPayload(ent(d))).catch(() => failed.push(d))));
+    await Promise.all(days.map((d) => {
+      const body = JSON.stringify(entryPayload(ent(d)));
+      // keepalive deja que termine aunque se cierre la pestaña (tiene un límite de 64 KB).
+      return api("/entries/" + d, { method: "PATCH", body, keepalive: body.length < 60000 }).catch(() => failed.push(d));
+    }));
     failed.forEach((d) => dirty.add(d));
     backupPending();
     if (dirty.size) {
@@ -244,11 +248,7 @@ export function mount(root, opts) {
       '<div class="side-switch">' + switchBtns("l", live) + "</div>" +
       feelHtml(e, live) +
       '<div class="writing"><div class="label-row"><span class="label">lo que viví hoy</span><button type="button" class="pen-btn" ' + (live ? 'data-act="pen" data-t="page"' : 'tabindex="-1"') + ' aria-label="Elegir tinta y letra de esta hoja"><i></i><b>Aa</b>Tinta y letra</button></div>' + body + "</div>" +
-      footHtml(s, live) + "</div>" + (live ? '<button type="button" class="corner prev" data-act="prev" aria-label="Día anterior">' + I.left + "</button>" : "");
-  }
-  function footHtml(s, live) {
-    const off = live ? "" : 'tabindex="-1"';
-    return '<div class="page-foot"><button type="button" data-act="prev" ' + off + ">" + I.left + 'Día anterior</button><button type="button" data-act="next" ' + (s >= TODAY ? "disabled " : "") + off + ">Día siguiente" + I.right + "</button></div>";
+      "</div>" + (live ? '<button type="button" class="corner prev" data-act="prev" aria-label="Día anterior">' + I.left + "</button>" : "");
   }
   function feelHtml(e, live) {
     const ms = moodsOf(e);
@@ -290,7 +290,7 @@ export function mount(root, opts) {
       '<button type="button" class="ptool" ' + (live ? 'data-act="add-song"' : off) + ">" + I.music + "Canción</button>" +
       '<button type="button" class="ptool" ' + (live ? 'data-act="add-memo"' : off) + ">" + I.memo + "Recuerdo</button>" +
       '<button type="button" class="ptool grip" ' + (live ? 'data-grip="page"' : off) + ' title="Arrástrala a una carpetita">' + I.grip + "Guardar</button>" +
-      "</div>" + footHtml(s, live) + "</div>" +
+      "</div></div>" +
       (live ? '<button type="button" class="corner next" data-act="next" aria-label="Día siguiente" ' + (s >= TODAY ? "disabled" : "") + ">" + I.right + "</button>" : "");
   }
   function paint() {
@@ -385,7 +385,7 @@ export function mount(root, opts) {
     state.busy = false;
     setCloseLabel();
   }
-  function setCloseLabel() { $("#btnClose").innerHTML = I.book + (closed ? "Abrir" : "Cerrar"); $("#desk").classList.toggle("is-closed", closed); }
+  function setCloseLabel() { $("#btnClose").innerHTML = I.book + '<span class="lbl">' + (closed ? "Abrir" : "Cerrar") + "</span>"; $("#btnClose").setAttribute("aria-label", closed ? "Abrir el diario" : "Cerrar el diario"); $("#desk").classList.toggle("is-closed", closed); }
 
   /* ---------- Calendario ---------- */
   function faceStack(e, max) {
@@ -673,7 +673,7 @@ export function mount(root, opts) {
   function composeHtml() {
     const d = draft;
     const opts = [["1 mes", addDays(TODAY, 30)], ["6 meses", addDays(TODAY, 182)], ["1 año", addDays(TODAY, 365)]].map(([t, s]) => '<button type="button" class="chip ' + (d.to === s ? "on" : "") + '" data-act="draft-to" data-d="' + s + '" style="padding:3px 13px">En ' + t + "</button>").join("");
-    return '<h2>Querida yo del futuro</h2><div style="' + penVars(d) + '"><textarea id="letterTxt" class="letter-paper" maxlength="100000" placeholder="Hoy quiero contarte…" aria-label="Texto de la carta">' + esc(d.text) + '</textarea><button type="button" class="pen-btn pen-letter-btn" style="--s:8.6px" data-act="pen" data-t="letter"><i></i><b>Aa</b>Tinta y letra</button></div><div class="when"><h4>¿Para cuándo es?</h4><div class="f-row" style="margin-top:0">' + opts + '</div><div class="pick-cal">' + calHtml(d.y, d.m, { pick: d.to, pickAct: "draft-to", navAct: "draft-nav" }) + '</div></div><div class="when"><h4 class="seal-q">¿Cómo la guardo?</h4><div class="seal-opts"><button type="button" class="seal-opt ' + (d.sealed ? "on" : "") + '" data-act="draft-seal" data-v="1"><span class="ic" style="color:var(--wax)">' + I.lock + '</span><span><b>Sellarla hasta ese día</b><small>No se puede abrir antes.</small></span></button><button type="button" class="seal-opt ' + (!d.sealed ? "on" : "") + '" data-act="draft-seal" data-v="0"><span class="ic">' + I.mail + '</span><span><b>Dejarla sin sellar</b><small>La lees en cualquier momento.</small></span></button></div></div><div class="actions"><button type="button" class="btn ghost" data-act="letters">Cancelar</button><button type="button" class="btn" data-act="save-letter">' + (d.sealed ? "Sellar y guardar" : "Guardar carta") + "</button></div>";
+    return '<h2>Querida yo del futuro</h2><div style="' + penVars(d) + '"><textarea id="letterTxt" class="letter-paper" data-draft="' + LETTER_DRAFT + '" maxlength="100000" placeholder="Hoy quiero contarte…" aria-label="Texto de la carta">' + esc(d.text) + '</textarea><button type="button" class="pen-btn pen-letter-btn" style="--s:8.6px" data-act="pen" data-t="letter"><i></i><b>Aa</b>Tinta y letra</button></div><div class="when"><h4>¿Para cuándo es?</h4><div class="f-row" style="margin-top:0">' + opts + '</div><div class="pick-cal">' + calHtml(d.y, d.m, { pick: d.to, pickAct: "draft-to", navAct: "draft-nav" }) + '</div></div><div class="when"><h4 class="seal-q">¿Cómo la guardo?</h4><div class="seal-opts"><button type="button" class="seal-opt ' + (d.sealed ? "on" : "") + '" data-act="draft-seal" data-v="1"><span class="ic" style="color:var(--wax)">' + I.lock + '</span><span><b>Sellarla hasta ese día</b><small>No se puede abrir antes.</small></span></button><button type="button" class="seal-opt ' + (!d.sealed ? "on" : "") + '" data-act="draft-seal" data-v="0"><span class="ic">' + I.mail + '</span><span><b>Dejarla sin sellar</b><small>La lees en cualquier momento.</small></span></button></div></div><div class="actions"><button type="button" class="btn ghost" data-act="letters">Cancelar</button><button type="button" class="btn" data-act="save-letter">' + (d.sealed ? "Sellar y guardar" : "Guardar carta") + "</button></div>";
   }
   async function sealAnimation(letter) {
     closeSheet();
@@ -917,8 +917,13 @@ export function mount(root, opts) {
 
   /* Pensamientos y recuerdos: se leen y editan en grande */
   const nowTime = () => new Date().toLocaleTimeString("es-MX", { hour: "numeric", minute: "2-digit" });
+  const readDraft = (key) => { try { return localStorage.getItem(key) ?? ""; } catch { return ""; } };
+  const writeDraft = (key, text) => { try { text ? localStorage.setItem(key, text) : localStorage.removeItem(key); } catch {} };
+  const LETTER_DRAFT = "mireya-diario-carta";
+  const noteDraft = (type) => "mireya-diario-nota-" + type;
   function textSheet(title, sub, value, i, type) {
-    openSheet("small-sheet", "<h2>" + title + '</h2><p class="sub">' + sub + '</p><textarea id="editTxt" class="note-area" maxlength="20000" aria-label="' + title + '">' + esc(value) + '</textarea><div class="actions"><button type="button" class="btn" data-act="save-text" data-i="' + i + '" data-type="' + type + '">Pegarlo en mi hoja</button></div>');
+    if (i < 0) value = readDraft(noteDraft(type));
+    openSheet("small-sheet", "<h2>" + title + '</h2><p class="sub">' + sub + '</p><textarea id="editTxt" class="note-area" maxlength="20000" ' + (i < 0 ? 'data-draft="' + noteDraft(type) + '" ' : "") + 'aria-label="' + title + '">' + esc(value) + '</textarea><div class="actions"><button type="button" class="btn" data-act="save-text" data-i="' + i + '" data-type="' + type + '">Pegarlo en mi hoja</button></div>');
   }
   function dayThoughtsHtml() {
     const list = ent(state.cur).items.map((it, i) => [it, i]).filter(([it]) => it.type === "thought");
@@ -1018,7 +1023,7 @@ export function mount(root, opts) {
       case "swatch-more": $("#moreColors").hidden = false; $("#fewColors").hidden = true; break;
       case "letters": draft = null; openSheet("letters", lettersHtml()); break;
       case "read-letter": readLetter(el.dataset.l); break;
-      case "compose": { const to = addDays(TODAY, 30), d = parse(to); draft = { text: "", to, sealed: true, y: d.getFullYear(), m: d.getMonth(), ink: state.ink, font: state.font }; openSheet("compose", composeHtml()); break; }
+      case "compose": { const to = addDays(TODAY, 30), d = parse(to); draft = { text: readDraft(LETTER_DRAFT), to, sealed: true, y: d.getFullYear(), m: d.getMonth(), ink: state.ink, font: state.font }; openSheet("compose", composeHtml()); break; }
       case "draft-to": { draft.to = el.dataset.d; const d = parse(draft.to); draft.y = d.getFullYear(); draft.m = d.getMonth(); keepDraftText(); refreshSheet(composeHtml()); break; }
       case "draft-nav": { let mo = draft.m + +el.dataset.dir; if (mo < 0) { mo = 11; draft.y--; } if (mo > 11) { mo = 0; draft.y++; } draft.m = mo; keepDraftText(); refreshSheet(composeHtml()); break; }
       case "draft-seal": draft.sealed = el.dataset.v === "1"; keepDraftText(); refreshSheet(composeHtml()); break;
@@ -1027,6 +1032,7 @@ export function mount(root, opts) {
         if (!draft.text.trim()) { $("#letterTxt").focus(); toast("Escribe algo para tu yo del futuro."); break; }
         const d = draft;
         send("/letters", "POST", { open_on: d.to, sealed: d.sealed, body: d.text, ink: d.ink, font: d.font }).then((row) => {
+          writeDraft(LETTER_DRAFT, "");
           const l = toLetter(row);
           state.letters.push(l);
           draft = null;
@@ -1049,6 +1055,7 @@ export function mount(root, opts) {
         const t = $("#editTxt").value.trim(), i = +el.dataset.i, type = el.dataset.type;
         if (!t) { $("#editTxt").focus(); break; }
         closeSheet();
+        if (i < 0) writeDraft(noteDraft(type), "");
         if (i >= 0) { ent(state.cur).items[i].text = t; touch(state.cur); if (isPhone()) { state.side = "r"; paint(); } else paintRight(); refreshDesk(); }
         else addItem(type === "thought" ? { type, text: t, time: state.cur === TODAY ? nowTime() : shortDate(state.cur) } : { type, text: t });
         break;
@@ -1061,6 +1068,7 @@ export function mount(root, opts) {
 
   listen(document, "input", (ev) => {
     const t = ev.target;
+    if (t.dataset.draft) writeDraft(t.dataset.draft, t.value);
     if (t.dataset.field) { ent(state.cur)[t.dataset.field] = t.value; touch(state.cur); renderCalSmall(); }
     if (t.id === "feelTxt") { ent(state.cur).feel = t.value; touch(state.cur); paintFeel(); refreshDesk(); }
     if (t.dataset.cap !== undefined) { ent(state.cur).items[+t.dataset.cap].cap = t.value; touch(state.cur); }
@@ -1282,7 +1290,7 @@ export function mount(root, opts) {
       const pending = JSON.parse(localStorage.getItem(PENDING_KEY) || "{}");
       Object.entries(pending).forEach(([d, p]) => {
         const e = ent(d);
-        Object.assign(e, { day: p.body ?? e.day, feel: p.feel ?? e.feel, moods: p.moods ?? e.moods, items: p.items ?? e.items, folder: p.folder_id ?? (p.clear_folder ? null : e.folder), ink: p.ink ?? e.ink, font: p.font ?? e.font });
+        Object.assign(e, { day: p.body ?? e.day, feel: p.feel ?? e.feel, moods: p.moods ?? e.moods, items: p.items ? p.items.map((it) => ({ ...it, url: e.items.find((old) => old.path && old.path === it.path)?.url })) : e.items, folder: p.folder_id ?? (p.clear_folder ? null : e.folder), ink: p.ink ?? e.ink, font: p.font ?? e.font });
         dirty.add(d);
       });
     } catch {}

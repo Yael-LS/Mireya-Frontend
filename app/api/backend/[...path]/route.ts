@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { backendApiUrl, backendHeaders } from "../../../lib/backend";
-import { isRefugioUnlocked, isUnlocked, lockedResponse, refugioLockedResponse } from "../../../lib/unlock";
+import { diaryCookie, diaryLockedResponse, isDiaryUnlocked, isRefugioUnlocked, isUnlocked, lockedResponse, refugioLockedResponse } from "../../../lib/unlock";
 
 // Lo del Refugio pide además su propia clave. Excepción: desde el chat, al
 // guardar un recuerdo, se puede aceptar una sugerencia o deshacer lo agregado
@@ -17,6 +17,8 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
   if (!(await isUnlocked(request))) return lockedResponse();
   const { path } = await context.params;
   if (needsRefugioKey(path, request.method) && !(await isRefugioUnlocked(request))) return refugioLockedResponse();
+  const isDiary = path[0].startsWith("diario");
+  if (isDiary && !(await isDiaryUnlocked(request))) return diaryLockedResponse();
   const hasBody = !["GET", "HEAD"].includes(request.method);
   try {
     const upstream = await fetch(backendApiUrl(path.join("/")) + request.nextUrl.search, {
@@ -27,7 +29,10 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
     });
     if (upstream.status === 204) return new Response(null, { status: 204 });
     const payload = await upstream.text();
-    return new Response(payload, { status: upstream.status, headers: { "Content-Type": upstream.headers.get("content-type") ?? "application/json" } });
+    const response = new Response(payload, { status: upstream.status, headers: { "Content-Type": upstream.headers.get("content-type") ?? "application/json" } });
+    // Mientras use el diario no se le cierra a media hoja.
+    if (isDiary) response.headers.append("Set-Cookie", await diaryCookie());
+    return response;
   } catch {
     return Response.json({ detail: "No fue posible conectar con Mireya AI." }, { status: 502 });
   }
