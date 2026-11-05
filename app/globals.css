@@ -247,3 +247,11 @@ body { margin: 0; background: radial-gradient(circle at 11% 10%, rgba(228, 211, 
   .is-settled .sticker-floats { animation: none; }
   .glass-panel::before, .glass-panel::after { transition: none; }
 }
+
+/* ---------- Velo entre el chat, el Refugio y el diario ---------- */
+.page-veil { position: fixed; inset: 0; z-index: 200; }
+.page-veil.is-in { animation: veil-in .26s ease both; }
+.page-veil.is-out { animation: veil-out .5s ease both; pointer-events: none; }
+@keyframes veil-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes veil-out { from { opacity: 1; } to { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .page-veil.is-in, .page-veil.is-out { animation-duration: .01ms; } }

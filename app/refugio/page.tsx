@@ -6,6 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { BookOpen, Camera, ChevronLeft, EyeOff, KeyRound, MessageCircle, Music, Plus, RefreshCw, Sparkles, Tv, Wind } from "lucide-react";
+import { softNavigate } from "../components/PageVeil";
 import PinPad from "../components/PinPad";
 import TulipIcon from "../components/TulipIcon";
 import { SKIP_CURTAIN_KEY } from "../components/WelcomeCurtain";
@@ -203,7 +204,7 @@ export default function RefugioPage() {
     } catch {
       // Sin sessionStorage el chat abre normal.
     }
-    router.push("/");
+    softNavigate("/");
   };
 
   const askPhotoFor = (item: RefugioItem) => {

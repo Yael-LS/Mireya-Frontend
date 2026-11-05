@@ -663,3 +663,72 @@
   .dy .new-f input { flex: 1 1 100%; }
   .dy .new-f .btn { margin-left: auto; }
 }
+
+/* Buscador de canciones */
+.dy .song-sheet { --w: 480px; display: flex; flex-direction: column; gap: 12px; }
+.dy .song-sheet h2 { font-size: 28px; }
+.dy .track-search { flex: none; display: flex; align-items: center; gap: 9px; min-height: 46px; padding: 0 8px 0 14px; border-radius: 15px; background: var(--paper-2); color: var(--era-ink); transition: box-shadow .15s; }
+.dy .track-search:focus-within { box-shadow: inset 0 0 0 2px var(--era); }
+.dy .track-search svg { flex: none; }
+.dy .track-search input { flex: 1 1 auto; min-width: 0; height: 44px; border: 0; outline: 0; background: none; font: 500 16px/1 var(--ui); color: var(--ink); }
+.dy .track-search input::placeholder { color: #8ea5bd; }
+.dy .track-clear { flex: none; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; color: var(--soft); }
+.dy .track-clear[hidden] { display: none; }
+.dy .track-clear svg { width: 14px; height: 14px; }
+.dy .track-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; margin-inline: -8px; padding-inline: 8px; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--gold) transparent; }
+.dy .track { flex: none; display: flex; align-items: center; gap: 12px; width: 100%; padding: 7px; border-radius: 14px; text-align: left; animation: track-in .28s ease both; animation-delay: var(--d, 0s); transition: background .15s; }
+.dy .track:hover, .dy .track:active { background: var(--paper-2); }
+@keyframes track-in { from { opacity: 0; transform: translateY(7px); } }
+.dy .track-art { flex: none; display: grid; place-items: center; width: 52px; height: 52px; overflow: hidden; border-radius: 10px; background: var(--paper-2); color: var(--era-ink); box-shadow: 0 5px 10px -6px rgba(40, 80, 130, .6); }
+.dy .track-art svg { width: 24px; height: 24px; }
+.dy .track-art img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.dy .track-txt { flex: 1 1 auto; min-width: 0; }
+.dy .track-txt b, .dy .track-txt i { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-style: normal; }
+.dy .track-txt b { font: 600 14.5px/1.3 var(--ui); color: var(--ink); }
+.dy .track-txt i { margin-top: 2px; font: 400 12.5px/1.3 var(--ui); color: var(--soft); }
+.dy .track-add { flex: none; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: var(--paper-2); color: var(--era-ink); font: 500 19px/1 var(--ui); }
+.dy .track-hint { margin: 0; padding: 22px 12px; text-align: center; font: 500 20px/1.2 var(--hand); color: var(--soft); }
+.dy .track-skel { flex: none; display: flex; align-items: center; gap: 12px; padding: 7px; animation: track-pulse 1.1s ease-in-out infinite alternate; }
+.dy .track-skel i { flex: none; width: 52px; height: 52px; border-radius: 10px; background: var(--paper-2); }
+.dy .track-skel span { flex: 1 1 auto; }
+.dy .track-skel b, .dy .track-skel u { display: block; height: 11px; border-radius: 6px; background: var(--paper-2); }
+.dy .track-skel b { width: 60%; margin-bottom: 8px; }
+.dy .track-skel u { width: 40%; }
+@keyframes track-pulse { to { opacity: .45; } }
+
+.dy #btnDone, .dy .page-foot { display: none; }
+
+@media (max-width: 767px) {
+  /* El diario queda centrado, con marco, y los botones flotan sobre sus esquinas */
+  .dy .desk { padding-block: 26px calc(92px + env(safe-area-inset-bottom, 0px)); }
+  .dy .top { position: fixed; top: max(12px, env(safe-area-inset-top, 0px)); left: max(8px, env(safe-area-inset-left, 0px)); right: max(8px, env(safe-area-inset-right, 0px)); z-index: 30; min-height: 0; pointer-events: none; }
+  .dy .top > * { pointer-events: auto; }
+  .dy .top .spacer { pointer-events: none; }
+  .dy .top #btnExit { order: 0; background: #fff; box-shadow: 0 5px 12px -5px rgba(40, 80, 130, .6), inset 0 0 0 1px rgba(214, 228, 243, .9); }
+  .dy .top #btnClose, .dy .top #btnDone { order: 3; display: inline-flex; min-height: 38px; padding: 0 13px; border-radius: 99px; background: #fff; color: var(--era-ink); font: 600 12.5px/1 var(--ui); box-shadow: 0 5px 12px -5px rgba(40, 80, 130, .6), inset 0 0 0 1px rgba(214, 228, 243, .9); }
+  .dy .top #btnClose svg { width: 17px; height: 17px; }
+  .dy .desk.is-closed #btnClose, .dy #btnDone { display: none !important; }
+  .dy .save-state { display: none; }
+  .dy .save-state.bad { display: block; position: fixed; left: 16px; right: 16px; bottom: calc(92px + env(safe-area-inset-bottom, 0px)); z-index: 40; padding: 8px 12px; border-radius: 12px; background: #fff; text-align: center; box-shadow: 0 8px 18px -8px rgba(40, 80, 130, .6); }
+  .dy .inner, .dy .left .inner, .dy .right .inner { padding-top: 34px; }
+  .dy .ribbon { display: none; }
+  .dy .r-head { justify-content: flex-end; min-height: 0; }
+  .dy .r-head .label { display: none; }
+  .dy .book { touch-action: pan-y; }
+  .dy .lined { touch-action: pan-y; }
+  .dy .page-foot { flex: none; display: flex; justify-content: space-between; gap: 8px; margin-top: 2px; }
+  .dy .page-foot button { display: inline-flex; align-items: center; gap: 3px; min-height: 34px; padding: 0 9px; border-radius: 99px; color: var(--era-ink); font: 600 12px/1 var(--ui); }
+  .dy .page-foot button:active { background: var(--era-soft); }
+  .dy .page-foot button[disabled] { opacity: .3; }
+  .dy .page-foot svg { width: 14px; height: 14px; }
+
+  /* Modo escritura: sin barra, y todo cabe arriba del teclado */
+  .dy.is-writing .bottom-nav, .dy.is-writing #btnClose { display: none !important; }
+  .dy.is-writing #btnDone { display: inline-flex !important; }
+  .dy.is-writing .desk { position: fixed; top: var(--vvt, 0); left: 0; right: 0; height: var(--vvh, 100dvh); min-height: 0; padding-bottom: 12px; }
+  .dy.is-writing .page-foot, .dy.is-writing .page-tools { display: none; }
+  .dy.is-writing .ov { top: var(--vvt, 0); bottom: auto; height: var(--vvh, 100dvh); padding: 8px; align-items: flex-start; }
+  .dy.is-writing .sheet { max-height: 100%; }
+  .dy .ov-song-sheet { align-items: flex-start; }
+  .dy .song-sheet { height: 100%; overflow: hidden; padding-bottom: 12px; }
+}

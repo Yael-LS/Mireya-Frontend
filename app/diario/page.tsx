@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { softNavigate } from "../components/PageVeil";
 import PinPad from "../components/PinPad";
 import { SKIP_CURTAIN_KEY } from "../components/WelcomeCurtain";
 
@@ -24,7 +24,6 @@ const checkPin = async (pin: string) =>
   ).ok;
 
 export default function DiarioPage() {
-  const router = useRouter();
   const rootRef = useRef<HTMLDivElement>(null);
   const cleanupRef = useRef<(() => void) | null>(null);
   const readyRef = useRef<Promise<void> | null>(null);
@@ -40,14 +39,14 @@ export default function DiarioPage() {
           onReady: resolve,
           exit: () => {
             sessionStorage.setItem(SKIP_CURTAIN_KEY, "1");
-            router.push("/");
+            softNavigate("/");
           },
         });
       });
       await document.fonts.ready;
     })();
     return readyRef.current;
-  }, [router]);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;

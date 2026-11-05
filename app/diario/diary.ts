@@ -2,7 +2,7 @@
 // El diario de Mireya. Es una interfaz muy manual (hoja que da la vuelta, stickers, sobres), así que
 // se maneja directo sobre el DOM en lugar de con estado de React.
 
-const MARKUP = '<div class="desk" id="desk">\n  <div class="top">\n        <span class="spacer"></span>\n    <button class="tool" data-act="today" type="button" id="btnToday"></button>\n    <button class="tool" data-act="search" type="button" id="btnSearch"></button>\n    <span class="save-state" id="saveState" role="status"></span>\n    <button class="tool" data-act="exit" type="button" id="btnExit"></button>\n    <button class="tool" data-act="toggle-book" type="button" id="btnClose"></button>\n  </div>\n  <div class="strip" id="strip"></div>\n  <div class="layout">\n    <div class="book-col">\n      <div class="book closed" id="book">\n        <div class="board board-l"></div><div class="board board-r"></div>\n        <div class="edges l"></div><div class="edges r"></div>\n        <div class="page left" id="pageL"></div>\n        <div class="page right" id="pageR"></div>\n        <div class="spine"></div>\n        <div class="ribbon"></div>\n        <div class="cover" id="cover" data-act="open-book" role="button" tabindex="0" aria-label="Abrir el diario">\n          <div class="cf" id="coverFront"><h2>El diario de Mireya</h2><p>Una aventura que vale la pena recordar</p><span class="tap">Toca para abrirlo</span></div>\n          <div class="cb" id="coverBack"></div>\n        </div>\n      </div>\n      <div class="deco" id="deco" aria-hidden="true"></div>\n    </div>\n    <aside class="side" aria-label="Calendario, carpetitas y cartas">\n      <div class="wall"><span class="nail"></span><div id="calSmall"></div></div>\n      <div class="drawer"><h3 style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">Mis carpetitas<button type="button" data-act="folders" style="font:600 12px/1 var(--ui);color:var(--era-ink)">+ crear otra</button></h3><div class="folders-mini" id="foldersMini"></div></div>\n      <button class="letterbox" type="button" data-act="letters" id="letterbox"></button>\n    </aside>\n  </div>\n  <nav class="bottom-nav" id="bottomNav" aria-label="Secciones"></nav>\n</div>\n<input type="file" id="photoInput" accept="image/*" hidden>\n<input type="file" id="bgInput" accept="image/*" hidden>\n<div id="ovRoot"></div>';
+const MARKUP = '<div class="desk" id="desk">\n  <div class="top">\n        <span class="spacer"></span>\n    <button class="tool" data-act="today" type="button" id="btnToday"></button>\n    <button class="tool" data-act="search" type="button" id="btnSearch"></button>\n    <span class="save-state" id="saveState" role="status"></span>\n    <button class="tool" data-act="exit" type="button" id="btnExit"></button>\n    <button class="tool" data-act="done" type="button" id="btnDone">Listo</button>\n    <button class="tool" data-act="toggle-book" type="button" id="btnClose"></button>\n  </div>\n  <div class="strip" id="strip"></div>\n  <div class="layout">\n    <div class="book-col">\n      <div class="book closed" id="book">\n        <div class="board board-l"></div><div class="board board-r"></div>\n        <div class="edges l"></div><div class="edges r"></div>\n        <div class="page left" id="pageL"></div>\n        <div class="page right" id="pageR"></div>\n        <div class="spine"></div>\n        <div class="ribbon"></div>\n        <div class="cover" id="cover" data-act="open-book" role="button" tabindex="0" aria-label="Abrir el diario">\n          <div class="cf" id="coverFront"><h2>El diario de Mireya</h2><p>Una aventura que vale la pena recordar</p><span class="tap">Toca para abrirlo</span></div>\n          <div class="cb" id="coverBack"></div>\n        </div>\n      </div>\n      <div class="deco" id="deco" aria-hidden="true"></div>\n    </div>\n    <aside class="side" aria-label="Calendario, carpetitas y cartas">\n      <div class="wall"><span class="nail"></span><div id="calSmall"></div></div>\n      <div class="drawer"><h3 style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">Mis carpetitas<button type="button" data-act="folders" style="font:600 12px/1 var(--ui);color:var(--era-ink)">+ crear otra</button></h3><div class="folders-mini" id="foldersMini"></div></div>\n      <button class="letterbox" type="button" data-act="letters" id="letterbox"></button>\n    </aside>\n  </div>\n  <nav class="bottom-nav" id="bottomNav" aria-label="Secciones"></nav>\n</div>\n<input type="file" id="photoInput" accept="image/*" hidden>\n<input type="file" id="bgInput" accept="image/*" hidden>\n<div id="ovRoot"></div>';
 
 export function mount(root, opts) {
   root.innerHTML = MARKUP;
@@ -244,7 +244,11 @@ export function mount(root, opts) {
       '<div class="side-switch">' + switchBtns("l", live) + "</div>" +
       feelHtml(e, live) +
       '<div class="writing"><div class="label-row"><span class="label">lo que viví hoy</span><button type="button" class="pen-btn" ' + (live ? 'data-act="pen" data-t="page"' : 'tabindex="-1"') + ' aria-label="Elegir tinta y letra de esta hoja"><i></i><b>Aa</b>Tinta y letra</button></div>' + body + "</div>" +
-      "</div>" + (live ? '<button type="button" class="corner prev" data-act="prev" aria-label="Día anterior">' + I.left + "</button>" : "");
+      footHtml(s, live) + "</div>" + (live ? '<button type="button" class="corner prev" data-act="prev" aria-label="Día anterior">' + I.left + "</button>" : "");
+  }
+  function footHtml(s, live) {
+    const off = live ? "" : 'tabindex="-1"';
+    return '<div class="page-foot"><button type="button" data-act="prev" ' + off + ">" + I.left + 'Día anterior</button><button type="button" data-act="next" ' + (s >= TODAY ? "disabled " : "") + off + ">Día siguiente" + I.right + "</button></div>";
   }
   function feelHtml(e, live) {
     const ms = moodsOf(e);
@@ -286,7 +290,7 @@ export function mount(root, opts) {
       '<button type="button" class="ptool" ' + (live ? 'data-act="add-song"' : off) + ">" + I.music + "Canción</button>" +
       '<button type="button" class="ptool" ' + (live ? 'data-act="add-memo"' : off) + ">" + I.memo + "Recuerdo</button>" +
       '<button type="button" class="ptool grip" ' + (live ? 'data-grip="page"' : off) + ' title="Arrástrala a una carpetita">' + I.grip + "Guardar</button>" +
-      "</div></div>" +
+      "</div>" + footHtml(s, live) + "</div>" +
       (live ? '<button type="button" class="corner next" data-act="next" aria-label="Día siguiente" ' + (s >= TODAY ? "disabled" : "") + ">" + I.right + "</button>" : "");
   }
   function paint() {
@@ -362,6 +366,12 @@ export function mount(root, opts) {
     cover.hidden = true;
     state.busy = false;
     setCloseLabel();
+    try {
+      if (isPhone() && !localStorage.getItem("mireya-diario-desliza")) {
+        localStorage.setItem("mireya-diario-desliza", "1");
+        toast("Desliza la hoja para cambiar de día");
+      }
+    } catch {}
   }
   async function closeBook() {
     if (closed || state.busy) return;
@@ -375,7 +385,7 @@ export function mount(root, opts) {
     state.busy = false;
     setCloseLabel();
   }
-  function setCloseLabel() { $("#btnClose").innerHTML = I.book + (closed ? "Abrir" : "Cerrar"); }
+  function setCloseLabel() { $("#btnClose").innerHTML = I.book + (closed ? "Abrir" : "Cerrar"); $("#desk").classList.toggle("is-closed", closed); }
 
   /* ---------- Calendario ---------- */
   function faceStack(e, max) {
@@ -475,7 +485,7 @@ export function mount(root, opts) {
   function openSheet(kind, html) {
     if (!$("#ovRoot").firstChild) lastFocus = document.activeElement;
     markNav(kind);
-    $("#ovRoot").innerHTML = '<div class="ov" data-act="backdrop" role="dialog" aria-modal="true"><div class="sheet ' + kind + '"><button type="button" class="close" data-act="close-ov" aria-label="Cerrar">' + I.close + "</button>" + html + "</div></div>";
+    $("#ovRoot").innerHTML = '<div class="ov ov-' + kind + '" data-act="backdrop" role="dialog" aria-modal="true"><div class="sheet ' + kind + '"><button type="button" class="close" data-act="close-ov" aria-label="Cerrar">' + I.close + "</button>" + html + "</div></div>";
     const first = $("#ovRoot input, #ovRoot textarea");
     if (first && !isPhone()) first.focus();
   }
@@ -724,20 +734,26 @@ export function mount(root, opts) {
   }
 
   /* Agregar canción y recuerdo */
-  let songHits = [], songTimer = 0;
-  const songList = () => (songHits.length ? songHits.map((s, i) => '<button type="button" class="song" style="--tile:#3f78b5" data-act="pick-song" data-i="' + i + '"><span class="art">' + (s.art ? '<img src="' + esc(s.art) + '" alt="">' : I.music) + '</span><span class="mid"><b>' + esc(s.t) + "</b><i>" + esc(s.a) + "</i></span></button>").join("") : "");
+  let songHits = [], songTimer = 0, songAsk = 0;
+  const SONG_HINT = '<p class="track-hint">Escribe el nombre o el artista</p>';
+  const SONG_LOADING = '<div class="track-skel"><i></i><span><b></b><u></u></span></div>'.repeat(4);
+  const songList = () => songHits.map((s, i) => '<button type="button" class="track" style="--d:' + i * .035 + 's" data-act="pick-song" data-i="' + i + '"><span class="track-art">' + (s.art ? '<img src="' + esc(s.art) + '" alt="">' : I.music) + '</span><span class="track-txt"><b>' + esc(s.t) + "</b><i>" + esc(s.a) + (s.album ? " · " + esc(s.album) : "") + '</i></span><span class="track-add" aria-hidden="true">+</span></button>').join("");
   function searchSongs(q) {
     clearTimeout(songTimer);
     const box = $("#songList");
-    if (!q.trim()) { songHits = []; box.innerHTML = ""; return; }
+    $("#songClear").hidden = !q;
+    const ask = ++songAsk;
+    if (!q.trim()) { songHits = []; box.innerHTML = SONG_HINT; return; }
+    box.innerHTML = SONG_LOADING;
     songTimer = setTimeout(async () => {
       try {
         songHits = await api("/spotify?q=" + encodeURIComponent(q.trim()));
         const now = $("#songList");
-        if (now) now.innerHTML = songHits.length ? songList() : '<div class="none" style="padding:18px">No encontré esa canción. Prueba con el nombre y el artista.</div>';
+        if (ask !== songAsk) return;
+        if (now) now.innerHTML = songHits.length ? songList() : '<p class="track-hint">No la encontré. Prueba con el nombre y el artista.</p>';
       } catch {
         const now = $("#songList");
-        if (now) now.innerHTML = '<div class="none" style="padding:18px">Spotify no respondió. Intenta otra vez en un momento.</div>';
+        if (ask === songAsk && now) now.innerHTML = '<p class="track-hint">Spotify no respondió. Intenta otra vez en un momento.</p>';
       }
     }, 350);
   }
@@ -931,6 +947,7 @@ export function mount(root, opts) {
         break;
       case "open-book": openBook(); break;
       case "toggle-book": closed ? openBook() : closeBook(); break;
+      case "done": document.activeElement?.blur?.(); break;
       case "today": closeSheet(); go(TODAY); break;
       case "prev": flipTo(addDays(state.cur, -1)); break;
       case "next": if (state.cur < TODAY) flipTo(addDays(state.cur, 1)); break;
@@ -1018,7 +1035,11 @@ export function mount(root, opts) {
         break;
       }
       case "add-photo": $("#photoInput").click(); break;
-      case "add-song": openSheet("small-sheet", '<h2>¿Qué canción fue?</h2><p class="sub">Búscala y se pega en tu hoja.</p><input id="songQ" class="song-q" placeholder="Nombre o artista…" autocomplete="off" aria-label="Buscar canción"><div class="song-list" id="songList"></div>'); break;
+      case "add-song":
+        openSheet("song-sheet", '<h2>¿Qué canción fue?</h2><label class="track-search">' + I.search + '<input id="songQ" placeholder="Busca en Spotify" autocomplete="off" enterkeyhint="search" aria-label="Buscar canción"><button type="button" class="track-clear" id="songClear" data-act="song-clear" aria-label="Borrar búsqueda" hidden>' + I.close + '</button></label><div class="track-list" id="songList">' + SONG_HINT + "</div>");
+        $("#songQ").focus();
+        break;
+      case "song-clear": { const q = $("#songQ"); q.value = ""; searchSongs(""); q.focus(); break; }
       case "pick-song": { const s = songHits[+el.dataset.i]; closeSheet(); addItem(Object.assign({ type: "song", c: "#3f78b5" }, s)); break; }
       case "add-memo": textSheet("Un recuerdo de este día", "Lo que no quieres que se te olvide.", "", -1, "memo"); break;
       case "add-thought": textSheet("¿Qué estás pensando?", "Escribe los que quieras durante el día. Cada uno se pega como una nota.", "", -1, "thought"); break;
@@ -1085,14 +1106,19 @@ export function mount(root, opts) {
   });
   /* Deslizar para cambiar de día en celular */
   let swipe = null;
-  $("#book").addEventListener("touchstart", (e) => { if (e.target.closest("textarea,.it,button")) return; swipe = { x: e.touches[0].clientX, y: e.touches[0].clientY }; }, { passive: true });
+  $("#book").addEventListener("touchstart", (e) => {
+    swipe = null;
+    if (closed || e.touches.length > 1 || e.target.closest(".it,input") || document.activeElement?.matches?.("#book textarea")) return;
+    swipe = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  }, { passive: true });
   $("#book").addEventListener("touchend", (e) => {
     if (!swipe) return;
     const dx = e.changedTouches[0].clientX - swipe.x, dy = e.changedTouches[0].clientY - swipe.y;
     swipe = null;
-    if (Math.abs(dx) < 60 || Math.abs(dy) > 50) return;
-    if (dx < 0 && state.cur < TODAY) flipTo(addDays(state.cur, 1));
+    if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
     if (dx > 0) flipTo(addDays(state.cur, -1));
+    else if (state.cur < TODAY) flipTo(addDays(state.cur, 1));
+    else toast("Ese día todavía no llega.");
   }, { passive: true });
 
 
@@ -1282,6 +1308,17 @@ export function mount(root, opts) {
     markNav("");
     paint();
     opts.onReady?.();
+    const syncViewport = () => {
+      const vv = window.visualViewport;
+      if (!vv) return;
+      root.style.setProperty("--vvh", vv.height + "px");
+      root.style.setProperty("--vvt", vv.offsetTop + "px");
+    };
+    syncViewport();
+    if (window.visualViewport) { listen(window.visualViewport, "resize", syncViewport); listen(window.visualViewport, "scroll", syncViewport); }
+    const typing = (n) => n?.matches?.("textarea,input:not([type=range]):not([type=file])");
+    listen(document, "focusin", (e) => { if (typing(e.target)) root.classList.add("is-writing"); });
+    listen(document, "focusout", () => setTimeout(() => { if (!typing(document.activeElement)) root.classList.remove("is-writing"); }, 60));
     listen(window, "pagehide", flushSaves);
     listen(document, "visibilitychange", () => { if (document.hidden) flushSaves(); });
     refreshDesk();
