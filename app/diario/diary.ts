@@ -843,6 +843,10 @@ export function mount(root, opts) {
     window.addEventListener("pointerup", up); window.addEventListener("pointercancel", up);
   }
   let didDrag = false;
+  // Al enfocar un texto la ventana sube para dejarle lugar al teclado: el dedo se suelta ya
+  // sobre el fondo. Solo se cierra si el toque también empezó en el fondo.
+  let pressedBackdrop = false;
+  listen(document, "pointerdown", (ev) => { pressedBackdrop = ev.target.classList?.contains("ov") ?? false; }, true);
   function moveToFolder(s, id) {
     const e = ent(s);
     e.folder = id === "sueltas" ? null : id;
@@ -982,7 +986,7 @@ export function mount(root, opts) {
     if (!el) return;
     const act = el.dataset.act;
     switch (act) {
-      case "backdrop": if (ev.target === el) closeSheet(); break;
+      case "backdrop": if (ev.target === el && pressedBackdrop) closeSheet(); break;
       case "close-ov":
         if ($("#ovRoot .pen-sheet")) penDone();
         else if ($("#ovRoot .bg-sheet") && state.bgFrom === "big") backToCalendar("big");
