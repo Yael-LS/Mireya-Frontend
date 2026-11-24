@@ -1,4 +1,5 @@
 // @ts-nocheck
+import { preparePhoto } from "../lib/photo";
 // El diario de Mireya. Es una interfaz muy manual (hoja que da la vuelta, stickers, sobres), así que
 // se maneja directo sobre el DOM en lugar de con estado de React.
 
@@ -112,15 +113,23 @@ export function mount(root, opts) {
   };
   async function uploadPhoto(file) {
     setSaveState("Subiendo tu foto…");
-    const bitmap = await createImageBitmap(file);
-    const scale = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height));
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.round(bitmap.width * scale);
-    canvas.height = Math.round(bitmap.height * scale);
-    canvas.getContext("2d").drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-    const out = await send("/photos", "POST", { photo_base64: canvas.toDataURL("image/jpeg", .85), photo_type: "image/jpeg" });
+    const out = await send("/photos", "POST", await preparePhoto(file));
     setSaveState("Guardado");
     return out;
+  }
+  // Los enlaces de las fotos caducan a la hora. En el celular la pestaña se queda abierta
+  // días: al volver al diario, o si una foto no carga, se piden enlaces nuevos.
+  let signedAt = Date.now(), refreshing = null;
+  function refreshPhotoUrls() {
+    if (refreshing || Date.now() - signedAt < 60000) return;
+    refreshing = api("").then((data) => {
+      signedAt = Date.now();
+      const urls = data.bg_urls || {};
+      Object.assign(state.bgUrls, urls);
+      Object.values(state.entries).forEach((e) => e.items.forEach((it) => { if (it.path && urls[it.path]) it.url = urls[it.path]; }));
+      root.querySelectorAll("img[data-path]").forEach((img) => { const u = urls[img.dataset.path]; if (u && img.getAttribute("src") !== u) img.src = u; });
+      refreshDesk();
+    }).catch(() => {}).finally(() => { refreshing = null; });
   }
 
   /* ---------- Caritas ---------- */
@@ -267,7 +276,7 @@ export function mount(root, opts) {
     const canEdit = it.type === "thought" || it.type === "memo";
     const tools = live ? '<button type="button" class="x" data-act="rm" data-i="' + i + '" aria-label="Quitar">×</button><span class="knob rot" data-knob="rot" title="Girar">' + I.rotate + '</span><span class="knob size" data-knob="size" title="Cambiar tamaño">' + I.resize + "</span>" + (canEdit ? '<button type="button" class="edit" data-act="edit-it" data-i="' + i + '">Leer o editar</button>' : "") : "";
     let inner = "";
-    if (it.type === "photo") inner = '<div class="polaroid"><img src="' + esc(it.url || "") + '" alt="' + esc(it.cap || "Foto del día") + '" draggable="false">' + (live ? '<input class="cap" data-cap="' + i + '" value="' + esc(it.cap || "") + '" maxlength="40" placeholder="escribe algo…" aria-label="Texto de la foto">' : "<p>" + (esc(it.cap) || "&nbsp;") + "</p>") + "</div>";
+    if (it.type === "photo") inner = '<div class="polaroid"><img src="' + esc(it.url || "") + '" data-path="' + esc(it.path || "") + '" alt="' + esc(it.cap || "Foto del día") + '" draggable="false">' + (live ? '<input class="cap" data-cap="' + i + '" value="' + esc(it.cap || "") + '" maxlength="40" placeholder="escribe algo…" aria-label="Texto de la foto">' : "<p>" + (esc(it.cap) || "&nbsp;") + "</p>") + "</div>";
     if (it.type === "song") inner = songCard(it, live);
     if (it.type === "memo") inner = '<div class="memo"><small>un recuerdo</small><p>' + esc(it.text) + "</p></div>";
     if (it.type === "thought") inner = '<div class="thought"><small>' + esc(it.time) + "</small><p>" + esc(it.text) + "</p></div>";
@@ -1200,17 +1209,19 @@ export function mount(root, opts) {
       animate($(`.fold-grid [data-folder="${f.id}"]`), [{ transform: "translateY(16px) scale(.8)", opacity: 0 }, { transform: "none", opacity: 1 }], 340, "cubic-bezier(.3,1.5,.5,1)");
     }).catch(() => toast("No pude crear la carpetita. Intenta otra vez."));
   });
+  listen(document, "visibilitychange", () => { if (!document.hidden && Date.now() - signedAt > 50 * 60000) refreshPhotoUrls(); });
+  listen(root, "error", (ev) => { if (ev.target && ev.target.tagName === "IMG" && ev.target.dataset.path) refreshPhotoUrls(); }, true);
   $("#photoInput").addEventListener("change", (ev) => {
     const file = ev.target.files[0];
     ev.target.value = "";
     if (!file) return;
-    uploadPhoto(file).then((p) => addItem({ type: "photo", path: p.path, url: p.url, cap: "" })).catch(() => { setSaveState("No se pudo subir la foto.", true); toast("No pude subir tu foto. Intenta otra vez."); });
+    uploadPhoto(file).then((p) => addItem({ type: "photo", path: p.path, url: p.url, cap: "" })).catch((err) => { setSaveState("No se pudo subir la foto.", true); toast(err?.message && err.message !== "No se pudo guardar." ? err.message : "No pude subir tu foto. Intenta otra vez."); });
   });
   $("#bgInput").addEventListener("change", (ev) => {
     const file = ev.target.files[0];
     ev.target.value = "";
     if (!file) return;
-    uploadPhoto(file).then((p) => { state.bgUrls[p.path] = p.url; state.myBg = "photo:" + p.path; applyBg(state.myBg); }).catch(() => { setSaveState("No se pudo subir la imagen.", true); toast("No pude subir tu imagen. Intenta otra vez."); });
+    uploadPhoto(file).then((p) => { state.bgUrls[p.path] = p.url; state.myBg = "photo:" + p.path; applyBg(state.myBg); }).catch((err) => { setSaveState("No se pudo subir la imagen.", true); toast(err?.message && err.message !== "No se pudo guardar." ? err.message : "No pude subir tu imagen. Intenta otra vez."); });
   });
   listen(document, "keydown", (ev) => {
     if (ev.key === "Escape" && $("#ovRoot").firstChild) { closeSheet(); return; }

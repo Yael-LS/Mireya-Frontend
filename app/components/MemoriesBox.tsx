@@ -1,8 +1,9 @@
 "use client";
 
-import { ChangeEvent, Fragment, ReactNode, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, Fragment, ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, Heart, ImagePlus, PenLine, Search, X } from "lucide-react";
 import TulipIcon from "./TulipIcon";
+import { preparePhoto } from "../lib/photo";
 import { KIND_LABELS } from "./refugio-types";
 import type { RefugioItem, RefugioSuggestion } from "./refugio-types";
 
@@ -21,11 +22,11 @@ type Props = {
   api: <T>(path: string, options?: RequestInit) => Promise<T>;
 };
 
-type Photo = { data: string; preview: string };
+// `preview` es null si el celular no pudo leerla (HEIC): la convierte el servidor.
+type Photo = { data: string; type: string; preview: string | null };
 
 const MAX_TEXT = 10_000;
 const MAX_CAPTION = 40;
-const PHOTO_SIDE = 1600;
 const ZONE = "America/Mexico_City";
 
 const PROMPTS = [
@@ -69,15 +70,11 @@ const normalize = (text: string) => text.normalize("NFD").replace(/\p{Diacritic}
 
 // Reduce la foto antes de subirla: pesa menos y cabe de sobra en el límite del servidor.
 async function shrinkPhoto(file: File): Promise<Photo> {
-  const bitmap = await createImageBitmap(file);
-  const scale = Math.min(1, PHOTO_SIDE / Math.max(bitmap.width, bitmap.height));
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.round(bitmap.width * scale);
-  canvas.height = Math.round(bitmap.height * scale);
-  canvas.getContext("2d")!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-  const data = canvas.toDataURL("image/jpeg", 0.85);
-  return { data, preview: data };
+  const { photo_base64, photo_type } = await preparePhoto(file);
+  return { data: photo_base64, type: photo_type, preview: photo_type === "image/jpeg" ? photo_base64 : null };
 }
+
+const photoError = (cause: unknown) => (cause instanceof Error && cause.message ? cause.message : "No pude leer esa foto. Prueba con otra.");
 
 // Icono del botón: dos notitas con un corazón.
 export function MemoriesIcon({ size = 18, className = "" }: { size?: number; className?: string }) {
@@ -132,9 +129,37 @@ export default function MemoriesBox({ onClose, api }: Props) {
   const [refugioAdded, setRefugioAdded] = useState<RefugioItem[]>([]);
   const [refugioSuggestions, setRefugioSuggestions] = useState<RefugioSuggestion[]>([]);
 
+  // Los enlaces de las fotos caducan a la hora: al volver, o si una foto no carga, se piden nuevos.
+  const signedAt = useRef(0);
+  const refreshing = useRef(false);
+  const refreshPhotos = () => {
+    if (refreshing.current || !signedAt.current || Date.now() - signedAt.current < 60_000) return;
+    refreshing.current = true;
+    api<Memory[]>("recuerdos")
+      .then((data) => {
+        setMemories(data);
+        signedAt.current = Date.now();
+      })
+      .catch(() => null)
+      .finally(() => (refreshing.current = false));
+  };
+  const refreshRef = useRef(refreshPhotos);
+  refreshRef.current = refreshPhotos;
+
+  useEffect(() => {
+    const onVisible = () => {
+      if (!document.hidden && signedAt.current && Date.now() - signedAt.current > 50 * 60_000) refreshRef.current();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, []);
+
   useEffect(() => {
     api<Memory[]>("recuerdos")
-      .then(setMemories)
+      .then((data) => {
+        setMemories(data);
+        signedAt.current = Date.now();
+      })
       .catch((cause) => setError(cause instanceof Error ? cause.message : "No pude abrir tus recuerdos."))
       .finally(() => setLoading(false));
     // Solo al abrir: `api` cambia de identidad en cada render del chat.
@@ -173,8 +198,8 @@ export default function MemoriesBox({ onClose, api }: Props) {
     setError("");
     try {
       setPhoto(await shrinkPhoto(file));
-    } catch {
-      setError("No pude leer esa foto. Prueba con una JPG o PNG.");
+    } catch (cause) {
+      setError(photoError(cause));
     }
   };
 
@@ -188,7 +213,7 @@ export default function MemoriesBox({ onClose, api }: Props) {
         method: "POST",
         ...json({
           text,
-          ...(photo ? { photo_base64: photo.data, photo_type: "image/jpeg", photo_caption: caption.trim() || null } : {}),
+          ...(photo ? { photo_base64: photo.data, photo_type: photo.type, photo_caption: caption.trim() || null } : {}),
         }),
       });
       const created = result.memory;
@@ -227,12 +252,14 @@ export default function MemoriesBox({ onClose, api }: Props) {
   };
 
   const setMemoryPhoto = async (memory: Memory, file: File) => {
+    let shrunk: Photo;
     try {
-      const shrunk = await shrinkPhoto(file);
-      await patch(memory, { photo_base64: shrunk.data, photo_type: "image/jpeg" });
-    } catch {
-      setError("No pude leer esa foto. Prueba con una JPG o PNG.");
+      shrunk = await shrinkPhoto(file);
+    } catch (cause) {
+      setError(photoError(cause));
+      return;
     }
+    await patch(memory, { photo_base64: shrunk.data, photo_type: shrunk.type });
   };
 
   const undoRefugio = async () => {
@@ -295,7 +322,7 @@ export default function MemoriesBox({ onClose, api }: Props) {
                   <figure className={`mem-pol mem-pol-big ${busyId === opened.id ? "animate-pulse" : ""}`}>
                     <span aria-hidden="true" className="panel-tape -top-3 left-1/2 -translate-x-1/2 rotate-[3deg]" />
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={opened.photo_url} alt={opened.photo_caption ?? "Foto del recuerdo"} />
+                    <img src={opened.photo_url} alt={opened.photo_caption ?? "Foto del recuerdo"} onError={refreshPhotos} />
                     <figcaption>
                       <label htmlFor="mem-caption" className="sr-only">
                         Pie de foto
@@ -399,7 +426,11 @@ export default function MemoriesBox({ onClose, api }: Props) {
                 <div className="mem-pol mem-pol-draft">
                   <span aria-hidden="true" className="mem-tape-sm" />
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={photo.preview} alt="La foto que elegiste" />
+                  {photo.preview ? (
+                    <img src={photo.preview} alt="La foto que elegiste" />
+                  ) : (
+                    <span className="mem-ph-pending">foto lista para subir</span>
+                  )}
                   <label htmlFor="mem-draft-caption" className="sr-only">
                     Pie de foto (opcional)
                   </label>
@@ -520,7 +551,7 @@ export default function MemoriesBox({ onClose, api }: Props) {
                                 {memory.photo_url && (
                                   <button type="button" onClick={() => openDetail(memory)} className="mem-pol mem-pol-thumb" aria-label="Ver el recuerdo con su foto">
                                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    <img src={memory.photo_url} alt="" />
+                                    <img src={memory.photo_url} alt="" onError={refreshPhotos} />
                                   </button>
                                 )}
                               </div>

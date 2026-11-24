@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { BookOpen, Camera, ChevronLeft, EyeOff, KeyRound, MessageCircle, Music, Plus, RefreshCw, Sparkles, Tv, Wind } from "lucide-react";
+import { BookOpen, Camera, ChevronLeft, EyeOff, KeyRound, MessageCircle, Music, Plus, RefreshCw, Sparkles, Trash2, Tv, Wind } from "lucide-react";
 import { softNavigate } from "../components/PageVeil";
 import PinPad from "../components/PinPad";
 import TulipIcon from "../components/TulipIcon";
@@ -105,6 +105,11 @@ export default function RefugioPage() {
   const [letterLoading, setLetterLoading] = useState(false);
   const photoTarget = useRef<string | null>(null);
   const photoInput = useRef<HTMLInputElement>(null);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [photoBusy, setPhotoBusy] = useState<string | null>(null);
+  // Los enlaces de las fotos caducan a la hora; se renuevan al volver o si una foto no carga.
+  const signedAt = useRef(0);
+  const refreshing = useRef(false);
 
   useEffect(() => {
     void (async () => {
@@ -124,6 +129,7 @@ export default function RefugioPage() {
     void (async () => {
       try {
         setItems((await api<{ items: RefugioItem[] }>("refugio")).items);
+        signedAt.current = Date.now();
       } catch (cause) {
         setLoadError(cause instanceof Error ? cause.message : "No pude abrir tu Refugio.");
       }
@@ -207,6 +213,40 @@ export default function RefugioPage() {
     softNavigate("/");
   };
 
+  const refreshPhotos = async () => {
+    if (refreshing.current || !signedAt.current || Date.now() - signedAt.current < 60_000) return;
+    refreshing.current = true;
+    try {
+      setItems((await api<{ items: RefugioItem[] }>("refugio")).items);
+      signedAt.current = Date.now();
+    } catch {
+      // Se reintenta en la próxima visita.
+    } finally {
+      refreshing.current = false;
+    }
+  };
+  const refreshRef = useRef(refreshPhotos);
+  refreshRef.current = refreshPhotos;
+
+  useEffect(() => {
+    const onVisible = () => {
+      if (!document.hidden && signedAt.current && Date.now() - signedAt.current > 50 * 60_000) void refreshRef.current();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, []);
+
+  const deleteMoment = async (item: RefugioItem) => {
+    setConfirmDelete(null);
+    setItems((current) => current.filter((entry) => entry.id !== item.id));
+    try {
+      await api(`refugio/items/${item.id}`, { method: "DELETE" });
+    } catch (cause) {
+      setItems((current) => [item, ...current]);
+      setLoadError(cause instanceof Error ? cause.message : "No se pudo borrar el momento.");
+    }
+  };
+
   const askPhotoFor = (item: RefugioItem) => {
     photoTarget.current = item.id;
     photoInput.current?.click();
@@ -215,6 +255,8 @@ export default function RefugioPage() {
   const uploadPhoto = async (file: File | undefined) => {
     const id = photoTarget.current;
     if (!file || !id) return;
+    setPhotoBusy(id);
+    setLoadError("");
     try {
       const updated = await api<RefugioItem>(`refugio/items/${id}/photo`, {
         method: "POST",
@@ -224,6 +266,8 @@ export default function RefugioPage() {
       setItems((current) => current.map((entry) => (entry.id === id ? updated : entry)));
     } catch (cause) {
       setLoadError(cause instanceof Error ? cause.message : "No se pudo subir la foto.");
+    } finally {
+      setPhotoBusy(null);
     }
   };
 
@@ -448,9 +492,9 @@ export default function RefugioPage() {
             <figure key={item.id} className="ref-moment snap-start" style={{ transform: `rotate(${[3, -3, 2, -2][index % 4]}deg)` }}>
               <span className="washi" />
               {item.photo_url ? (
-                <div className="relative aspect-square overflow-hidden">
+                <div className={`relative aspect-square overflow-hidden ${photoBusy === item.id ? "animate-pulse" : ""}`}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={item.photo_url} alt={item.title} className="h-full w-full object-cover" />
+                  <img src={item.photo_url} alt={item.title} className="h-full w-full object-cover" onError={() => void refreshPhotos()} />
                 </div>
               ) : (
                 <div className="ref-moment-note">
@@ -465,6 +509,30 @@ export default function RefugioPage() {
                 <span className="block truncate font-hand text-[20px] text-[#7a2c43]">{item.title}</span>
                 {item.moment_date && <span className="block text-[11px] text-[#8a4a5c]">{formatDate(item.moment_date)}</span>}
               </figcaption>
+              <div className="ref-moment-tools">
+                {item.photo_url && (
+                  <button type="button" onClick={() => askPhotoFor(item)} disabled={photoBusy === item.id} className="ref-moment-tool" aria-label={`Cambiar la foto de ${item.title}`} title="Cambiar foto">
+                    <Camera size={15} />
+                  </button>
+                )}
+                <button type="button" onClick={() => setConfirmDelete(item.id)} className="ref-moment-tool" aria-label={`Borrar el momento ${item.title}`} title="Borrar momento">
+                  <Trash2 size={15} />
+                </button>
+              </div>
+              {confirmDelete === item.id && (
+                <div className="ref-moment-confirm bubble-in">
+                  <p className="font-hand text-[22px] leading-tight">¿borrar este momento?</p>
+                  <p className="text-[11px] text-[#ffdfe8]">se va de tu Refugio con todo y foto</p>
+                  <div className="mt-2 flex gap-2">
+                    <button type="button" onClick={() => void deleteMoment(item)} className="rounded-full bg-[#f7a8bf] px-3.5 py-2 text-xs font-medium text-[#4a2230] hover:bg-[#ffc2d3]">
+                      sí, borrar
+                    </button>
+                    <button type="button" onClick={() => setConfirmDelete(null)} className="rounded-full border border-white/40 px-3.5 py-2 text-xs hover:bg-white/10">
+                      no
+                    </button>
+                  </div>
+                </div>
+              )}
               <button type="button" onClick={() => recall(item)} className="ref-recall">
                 <MessageCircle size={14} /> recordarlo en el chat
               </button>

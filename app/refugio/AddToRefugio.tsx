@@ -3,20 +3,14 @@
 import { FormEvent, useState } from "react";
 import { Camera, X } from "lucide-react";
 import { KIND_LABELS } from "../components/refugio-types";
+import { preparePhoto } from "../lib/photo";
 import type { RefugioItem, RefugioKind } from "../components/refugio-types";
 
 const ITEM_KINDS: RefugioKind[] = ["song", "series", "kdrama", "anime", "movie", "book", "quote", "other"];
 
-// Las fotos del celular pesan varios MB: se reducen a 1600 px antes de subir.
-export async function resizePhoto(file: File, maxSide = 1600): Promise<{ photo_base64: string; photo_type: string }> {
-  const bitmap = await createImageBitmap(file);
-  const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.round(bitmap.width * scale);
-  canvas.height = Math.round(bitmap.height * scale);
-  canvas.getContext("2d")!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-  return { photo_base64: canvas.toDataURL("image/jpeg", 0.85), photo_type: "image/jpeg" };
-}
+// Las fotos del celular pesan varios MB: se reducen a 1600 px antes de subir
+// (o las convierte el servidor si el celular no puede, ver lib/photo).
+export const resizePhoto = preparePhoto;
 
 type Props = {
   onClose: () => void;
