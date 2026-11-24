@@ -31,4 +31,5 @@ export const KIND_LABELS: Record<RefugioKind, string> = {
 
 // Puente entre el Refugio y el chat: el momento que ella quiere recordar.
 export const RECALL_KEY = "mireya:recordar";
-export type RecallMoment = { title: string };
+// `prompt` y `mode` los usa «Lo que me acompaña»: abre una charla normal con su propio mensaje.
+export type RecallMoment = { title: string; prompt?: string; mode?: "normal" | "nostalgia" };

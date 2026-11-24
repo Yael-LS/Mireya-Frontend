@@ -344,8 +344,9 @@ export default function Home() {
         // con el mensaje escrito pero sin enviar para que ella decida.
         const recall = takeRecallMoment();
         if (recall) {
-          await createSession({ title: `Recordando: ${recall.title}`.slice(0, 100), mode: "nostalgia" });
-          setInput(`Cuéntame otra vez de ${recall.title}…`);
+          const nostalgia = (recall.mode ?? "nostalgia") === "nostalgia";
+          await createSession({ title: `${nostalgia ? "Recordando" : "Platicando de"}: ${recall.title}`.slice(0, 100), mode: nostalgia ? "nostalgia" : "normal" });
+          setInput(recall.prompt ?? `Cuéntame otra vez de ${recall.title}…`);
         } else if (data[0]) await loadSession(data[0].id);
         else await createSession();
       } catch (cause) {
@@ -669,6 +670,14 @@ export default function Home() {
             >
               <BookHeart size={17} />
               Mi diario
+            </Link>
+
+            <Link
+              href="/acompana"
+              className="mt-2.5 flex items-center justify-center gap-2 rounded-full border border-white/80 bg-[#f3e6d8]/80 px-4 py-2.5 text-sm text-[#7a4a2c] transition hover:bg-[#f3e6d8]"
+            >
+              <Music size={17} />
+              Playlist
             </Link>
 
             <button
