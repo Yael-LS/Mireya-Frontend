@@ -522,7 +522,7 @@ export default function RefugioPage() {
               {confirmDelete === item.id && (
                 <div className="ref-moment-confirm bubble-in">
                   <p className="font-hand text-[22px] leading-tight">¿borrar este momento?</p>
-                  <p className="text-[11px] text-[#ffdfe8]">se va de tu Refugio con todo y foto</p>
+                  <p className="text-[11px] text-[#ffdfe8]">se va con todo y foto, y el chat también lo olvida</p>
                   <div className="mt-2 flex gap-2">
                     <button type="button" onClick={() => void deleteMoment(item)} className="rounded-full bg-[#f7a8bf] px-3.5 py-2 text-xs font-medium text-[#4a2230] hover:bg-[#ffc2d3]">
                       sí, borrar
