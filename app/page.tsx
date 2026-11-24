@@ -6,7 +6,6 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { BookHeart,
   ArrowUp,
-  BrainCircuit,
   Camera,
   Check,
   ChevronLeft,
@@ -32,16 +31,16 @@ import confetti from "canvas-confetti";
 import Swal from "sweetalert2";
 import AvatarPicker, { DEFAULT_AVATAR } from "./components/AvatarPicker";
 import IdeasBox from "./components/IdeasBox";
+import MemoriesBox, { MemoriesIcon } from "./components/MemoriesBox";
 import ScrapbookBackground from "./components/ScrapbookBackground";
 import TulipIcon from "./components/TulipIcon";
 import WelcomeCurtain from "./components/WelcomeCurtain";
-import { KIND_LABELS, RECALL_KEY } from "./components/refugio-types";
-import type { RecallMoment, RefugioItem, RefugioSuggestion } from "./components/refugio-types";
+import { RECALL_KEY } from "./components/refugio-types";
+import type { RecallMoment } from "./components/refugio-types";
 
 type Message = { id?: string; role: "user" | "assistant"; content: string; created_at?: string; hearted?: boolean };
 type StreamEvent = { type: string; delta?: string; message?: string; user_message_id?: string; message_id?: string | null };
 type Session = { id: string; title: string; created_at: string; updated_at: string };
-type IngestResult = { refugio?: RefugioItem[]; refugio_suggestions?: RefugioSuggestion[] };
 
 const DRAFT_KEY = "mireya-draft-";
 
@@ -241,8 +240,6 @@ export default function Home() {
   const [isLoadingSession, setIsLoadingSession] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [memoryOpen, setMemoryOpen] = useState(false);
-  const [memoryText, setMemoryText] = useState("");
-  const [memoryStatus, setMemoryStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [error, setError] = useState("");
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [revealed, setRevealed] = useState(false);
@@ -261,8 +258,6 @@ export default function Home() {
   const hintedSessions = useRef<Set<string>>(new Set());
   const [unlocked, setUnlocked] = useState(false);
   const unlock = useCallback(() => setUnlocked(true), []);
-  const [refugioAdded, setRefugioAdded] = useState<RefugioItem[]>([]);
-  const [refugioSuggestions, setRefugioSuggestions] = useState<RefugioSuggestion[]>([]);
   const endRef = useRef<HTMLDivElement>(null);
   // Al abrir una conversación se salta al final; el scroll suave es para lo que va llegando.
   const jumpToEnd = useRef(true);
@@ -586,56 +581,6 @@ export default function Home() {
     }
   };
 
-  const saveMemory = async () => {
-    if (!memoryText.trim() || memoryStatus === "saving") return;
-    setMemoryStatus("saving");
-    try {
-      const result = await request<IngestResult>("ingest", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: memoryText }),
-      });
-      setMemoryText("");
-      setMemoryStatus("saved");
-      const added = result.refugio ?? [];
-      const suggestions = result.refugio_suggestions ?? [];
-      setRefugioAdded(added);
-      setRefugioSuggestions(suggestions);
-      // Si nada llegó al Refugio, el modal se cierra solo como antes.
-      if (!added.length && !suggestions.length) setTimeout(closeMemory, 1100);
-    } catch {
-      setMemoryStatus("error");
-    }
-  };
-
-  const closeMemory = () => {
-    setMemoryOpen(false);
-    setMemoryStatus("idle");
-    setRefugioAdded([]);
-    setRefugioSuggestions([]);
-  };
-
-  const undoRefugio = async () => {
-    const items = refugioAdded;
-    setRefugioAdded([]);
-    await Promise.all(items.map((item) => request(`refugio/items/${item.id}`, { method: "DELETE" }).catch(() => null)));
-  };
-
-  const answerSuggestion = async (suggestion: RefugioSuggestion, keep: boolean) => {
-    setRefugioSuggestions((current) => current.filter((item) => item !== suggestion));
-    if (!keep) return;
-    try {
-      const created = await request<RefugioItem>("refugio/items", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(suggestion),
-      });
-      setRefugioAdded((current) => [...current, created]);
-    } catch {
-      // Si ya existía (409) no hay nada que avisar.
-    }
-  };
-
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
@@ -706,8 +651,8 @@ export default function Home() {
               }}
               className="mt-2.5 flex items-center justify-center gap-2 rounded-full border border-white/80 bg-white/45 px-4 py-2.5 text-sm text-[#733b4b] transition hover:bg-white/75"
             >
-              <BrainCircuit size={16} className="text-[#be4d69]" />
-              Guardar recuerdo
+              <MemoriesIcon size={18} className="text-[#d9567a]" />
+              Recuerdos
             </button>
 
             <Link
@@ -832,10 +777,10 @@ export default function Home() {
               <button
                 onClick={() => setMemoryOpen(true)}
                 className="grid size-9 place-items-center rounded-full border border-white/80 bg-white/45 text-[#be4d69] transition hover:bg-white/75 sm:size-10"
-                aria-label="Guardar recuerdo"
-                title="Guardar recuerdo"
+                aria-label="Recuerdos"
+                title="Recuerdos"
               >
-                <BrainCircuit size={17} />
+                <MemoriesIcon size={18} />
               </button>
             </div>
           </header>
@@ -1079,96 +1024,7 @@ export default function Home() {
         <AvatarPicker api={request} current={avatarUrl} onChange={setAvatarUrl} onClose={() => setAvatarOpen(false)} />
       )}
 
-      {/* MODAL NUEVO RECUERDO */}
-      {memoryOpen && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-[#381a24]/30 p-4 backdrop-blur-sm animate-in fade-in">
-          <div className="w-full max-w-lg rounded-3xl border border-white/90 bg-[#fff8fa] p-5 sm:p-6 shadow-2xl">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="font-serif text-xl sm:text-2xl text-[#421f2b]">Nuevo recuerdo</h2>
-                <p className="mt-0.5 sm:mt-1 text-xs sm:text-sm text-[#733b4b]">Se guardará y estará disponible para futuras conversaciones.</p>
-              </div>
-              <button onClick={closeMemory} aria-label="Cerrar" className="rounded-full p-2 text-[#8f475a] hover:bg-[#fae6ec]">
-                <X size={18} />
-              </button>
-            </div>
-
-            <textarea
-              value={memoryText}
-              onChange={(event) => {
-                setMemoryText(event.target.value);
-                setMemoryStatus("idle");
-              }}
-              maxLength={10000}
-              rows={6}
-              placeholder="Escribe un recuerdo, una anécdota, un gusto, el link de tus canciones favoritas o un dato importante…"
-              className="mt-4 sm:mt-5 w-full resize-none rounded-2xl border border-[#f0cad5] bg-white p-3.5 sm:p-4 text-xs sm:text-sm text-[#42222b] outline-none focus:border-[#a45d6f] focus:ring-4 focus:ring-[#fae6ec]"
-            />
-
-            <div className="mt-4 flex items-center justify-between">
-              <span className={`text-[11px] sm:text-xs ${memoryStatus === "error" ? "text-rose-600" : "text-[#9e6776]"}`}>
-                {memoryStatus === "saving"
-                  ? "Guardando en el mapa de recuerdos…"
-                  : memoryStatus === "saved"
-                  ? "¡Recuerdo guardado!"
-                  : memoryStatus === "error"
-                  ? "No se pudo guardar. Intenta de nuevo."
-                  : `${memoryText.length}/10000`}
-              </span>
-              <button
-                onClick={() => void saveMemory()}
-                disabled={!memoryText.trim() || memoryStatus === "saving"}
-                className="rounded-xl bg-[#522b37] px-3.5 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm font-medium text-white transition hover:bg-[#3d1d27] disabled:bg-[#edd0d7]"
-              >
-                {memoryStatus === "saving" ? "Guardando…" : "Guardar recuerdo"}
-              </button>
-            </div>
-
-            {(refugioAdded.length > 0 || refugioSuggestions.length > 0) && (
-              <div className="bubble-in mt-5 rounded-3xl bg-gradient-to-br from-[#5c2a3c] to-[#4a2230] p-4 text-[#fff3f6] shadow-[0_16px_30px_-16px_rgba(74,34,48,.9)] sm:p-5">
-                {refugioAdded.length > 0 && (
-                  <div className="flex items-start gap-3">
-                    <TulipIcon size={22} className="mt-0.5 shrink-0 text-[#f7a8bf]" />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium">También lo guardé en El Refugio</p>
-                      <ul className="mt-1.5 space-y-0.5 text-[13px] text-[#ffdfe8]">
-                        {refugioAdded.map((item) => (
-                          <li key={item.id} className="truncate">
-                            <span className="font-hand text-[16px] text-[#f7a8bf]">{KIND_LABELS[item.kind]}:</span> {item.title}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                    <button onClick={() => void undoRefugio()} className="shrink-0 font-hand text-lg text-[#f7a8bf] underline-offset-4 hover:underline">
-                      deshacer
-                    </button>
-                  </div>
-                )}
-
-                {refugioSuggestions.map((suggestion) => (
-                  <div key={`${suggestion.kind}-${suggestion.title}`} className="mt-3 flex flex-wrap items-center gap-2 border-t border-white/15 pt-3 first:mt-0 first:border-0 first:pt-0">
-                    <p className="min-w-0 flex-1 text-[13px]">
-                      ¿Guardo también <strong>{suggestion.title}</strong> <span className="text-[#ffdfe8]">({KIND_LABELS[suggestion.kind]})</span> en El Refugio?
-                    </p>
-                    <button onClick={() => void answerSuggestion(suggestion, true)} className="rounded-full bg-[#f7a8bf] px-3.5 py-1.5 text-xs font-medium text-[#4a2230] hover:bg-[#ffc2d3]">
-                      Sí
-                    </button>
-                    <button onClick={() => void answerSuggestion(suggestion, false)} className="rounded-full border border-white/30 px-3.5 py-1.5 text-xs text-[#ffdfe8] hover:bg-white/10">
-                      No
-                    </button>
-                  </div>
-                ))}
-
-                <div className="mt-4 flex justify-end">
-                  <button onClick={closeMemory} className="rounded-full bg-white/15 px-4 py-2 text-xs font-medium hover:bg-white/25">
-                    Listo
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      {memoryOpen && <MemoriesBox api={request} onClose={() => setMemoryOpen(false)} />}
     </main>
   );
 }
