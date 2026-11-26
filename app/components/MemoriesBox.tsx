@@ -1,7 +1,7 @@
 "use client";
 
 import { ChangeEvent, Fragment, ReactNode, useEffect, useMemo, useRef, useState } from "react";
-import { ChevronLeft, Heart, ImagePlus, PenLine, Search, X } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, Heart, ImagePlus, List, PenLine, Search, X } from "lucide-react";
 import TulipIcon from "./TulipIcon";
 import { preparePhoto } from "../lib/photo";
 import { KIND_LABELS } from "./refugio-types";
@@ -66,6 +66,40 @@ const monthKey = (iso: string | null) => {
   return `${month} ${year}`;
 };
 
+// "2026-11-24": el día en México, que es el que ella vivió.
+const dayKey = (iso: string) => {
+  const p = parts(iso, { year: "numeric", month: "2-digit", day: "2-digit" });
+  return `${p.year}-${p.month}-${p.day}`;
+};
+
+const MONTHS = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+const WEEKDAYS = ["lu", "ma", "mi", "ju", "vi", "sá", "do"];
+const UNDATED = "sin-fecha";
+
+type Month = { y: number; m: number }; // m: 0 = enero
+const monthOf = (key: string): Month => ({ y: Number(key.slice(0, 4)), m: Number(key.slice(5, 7)) - 1 });
+const monthIndex = ({ y, m }: Month) => y * 12 + m;
+const pad = (n: number) => String(n).padStart(2, "0");
+const dayLabel = (key: string) => `${Number(key.slice(8, 10))} de ${MONTHS[Number(key.slice(5, 7)) - 1]}`;
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+type Cell = { key: string; day: number; inMonth: boolean };
+
+// Semanas de lunes a domingo, con los días vecinos en gris para cerrar la cuadrícula.
+function monthCells({ y, m }: Month): Cell[] {
+  const lead = (new Date(Date.UTC(y, m, 1)).getUTCDay() + 6) % 7;
+  const days = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+  const total = Math.ceil((lead + days) / 7) * 7;
+  return Array.from({ length: total }, (_, i) => {
+    const date = new Date(Date.UTC(y, m, 1 - lead + i));
+    return {
+      key: `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}`,
+      day: date.getUTCDate(),
+      inMonth: date.getUTCMonth() === m,
+    };
+  });
+}
+
 const normalize = (text: string) => text.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
 
 // Reduce la foto antes de subirla: pesa menos y cabe de sobra en el límite del servidor.
@@ -111,8 +145,14 @@ export default function MemoriesBox({ onClose, api }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
-  const [view, setView] = useState<"list" | "new" | "detail">("list");
+  const [view, setView] = useState<"home" | "new">("home");
+  // Siempre abre en calendario; la lista es para buscar o leer de corrido.
+  const [mode, setMode] = useState<"calendar" | "list">("calendar");
+  const [month, setMonth] = useState<Month>(() => monthOf(dayKey(new Date().toISOString())));
+  const [selected, setSelected] = useState<string | null>(null);
+  // El recuerdo abierto y los de su mismo día, para pasar de uno a otro.
   const [openId, setOpenId] = useState<string | null>(null);
+  const [openIds, setOpenIds] = useState<string[]>([]);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [busyId, setBusyId] = useState<string | null>(null);
   const [justSaved, setJustSaved] = useState<string | null>(null);
@@ -159,6 +199,12 @@ export default function MemoriesBox({ onClose, api }: Props) {
       .then((data) => {
         setMemories(data);
         signedAt.current = Date.now();
+        // Al abrir queda elegido el último día con recuerdos (hoy, si ya guardó algo).
+        const latest = data.find((m) => m.created_at)?.created_at;
+        if (latest) {
+          setSelected(dayKey(latest));
+          setMonth(monthOf(dayKey(latest)));
+        }
       })
       .catch((cause) => setError(cause instanceof Error ? cause.message : "No pude abrir tus recuerdos."))
       .finally(() => setLoading(false));
@@ -189,8 +235,60 @@ export default function MemoriesBox({ onClose, api }: Props) {
     return result;
   }, [visible]);
 
+  const byDay = useMemo(() => {
+    const result = new Map<string, Memory[]>();
+    for (const memory of memories) {
+      const key = memory.created_at ? dayKey(memory.created_at) : UNDATED;
+      result.set(key, [...(result.get(key) ?? []), memory]);
+    }
+    return result;
+  }, [memories]);
+
   const firstDated = [...memories].reverse().find((m) => m.created_at);
   const opened = memories.find((m) => m.id === openId) ?? null;
+  const todayKey = dayKey(now);
+  const thisMonth = monthOf(todayKey);
+  const firstMonth = firstDated?.created_at ? monthOf(dayKey(firstDated.created_at)) : thisMonth;
+  const canPrev = monthIndex(month) > monthIndex(firstMonth);
+  const canNext = monthIndex(month) < monthIndex(thisMonth);
+  const monthPrefix = `${month.y}-${pad(month.m + 1)}`;
+  const monthDays = [...byDay.keys()].filter((key) => key.startsWith(monthPrefix));
+  const monthCount = monthDays.reduce((sum, key) => sum + (byDay.get(key)?.length ?? 0), 0);
+  const undated = byDay.get(UNDATED) ?? [];
+  const selectedItems = selected ? (byDay.get(selected) ?? []) : [];
+
+  const moveMonth = (step: number) => {
+    const index = monthIndex(month) + step;
+    setMonth({ y: Math.floor(index / 12), m: index % 12 });
+    setSelected(null);
+  };
+
+  const openMemory = (memory: Memory) => {
+    const key = memory.created_at ? dayKey(memory.created_at) : UNDATED;
+    setOpenIds((byDay.get(key) ?? [memory]).map((m) => m.id));
+    setOpenId(memory.id);
+  };
+
+  const pickDay = (key: string) => {
+    setSelected(key);
+    const items = byDay.get(key) ?? [];
+    if (items.length === 1 && key !== UNDATED) openMemory(items[0]);
+  };
+
+  const openIndex = opened ? openIds.indexOf(opened.id) : -1;
+  const stepOpen = (step: number) => {
+    const next = openIds[openIndex + step];
+    if (next) setOpenId(next);
+  };
+
+  useEffect(() => {
+    if (!openId) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpenId(null);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [openId]);
 
   const replace = (memory: Memory) => setMemories((current) => current.map((m) => (m.id === memory.id ? memory : m)));
 
@@ -231,7 +329,11 @@ export default function MemoriesBox({ onClose, api }: Props) {
       setCaption("");
       setPrompt(0);
       setQuery("");
-      setView("list");
+      // Vuelve al calendario con hoy abierto, donde quedó el recuerdo nuevo.
+      const today = dayKey(new Date().toISOString());
+      setSelected(today);
+      setMonth(monthOf(today));
+      setView("home");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No se pudo guardar. Intenta de nuevo.");
     } finally {
@@ -279,11 +381,6 @@ export default function MemoriesBox({ onClose, api }: Props) {
     }
   };
 
-  const openDetail = (memory: Memory) => {
-    setOpenId(memory.id);
-    setView("detail");
-  };
-
   const toggle = (id: string) =>
     setExpanded((current) => {
       const next = new Set(current);
@@ -303,84 +400,7 @@ export default function MemoriesBox({ onClose, api }: Props) {
         <span aria-hidden="true" className="panel-tape -left-6 top-6 hidden -rotate-[38deg] sm:block" />
         <span aria-hidden="true" className="panel-tape -right-6 top-6 hidden rotate-[38deg] sm:block" />
 
-        {view === "detail" && opened ? (
-          // ---------- Un recuerdo abierto ----------
-          <div className="flex min-h-0 flex-1 flex-col">
-            <header className="flex items-center justify-between gap-3 px-4 pt-4 sm:px-6 sm:pt-6">
-              <button type="button" onClick={() => setView("list")} className="flex min-h-11 items-center gap-1 px-2 font-hand text-[21px] text-[#9e3b56]">
-                <ChevronLeft size={17} />
-                mis recuerdos
-              </button>
-              <button type="button" onClick={onClose} aria-label="Cerrar recuerdos" className="rounded-full p-2.5 text-[#8f475a] hover:bg-[#fae6ec]">
-                <X size={18} />
-              </button>
-            </header>
-
-            <div className="mem-scroll px-6 pb-8 sm:px-10">
-              {opened.photo_url ? (
-                <>
-                  <figure className={`mem-pol mem-pol-big ${busyId === opened.id ? "animate-pulse" : ""}`}>
-                    <span aria-hidden="true" className="panel-tape -top-3 left-1/2 -translate-x-1/2 rotate-[3deg]" />
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={opened.photo_url} alt={opened.photo_caption ?? "Foto del recuerdo"} onError={refreshPhotos} />
-                    <figcaption>
-                      <label htmlFor="mem-caption" className="sr-only">
-                        Pie de foto
-                      </label>
-                      <input
-                        id="mem-caption"
-                        key={`${opened.id}-${opened.photo_caption ?? ""}`}
-                        defaultValue={opened.photo_caption ?? ""}
-                        maxLength={MAX_CAPTION}
-                        placeholder="escribe un pie de foto…"
-                        className="mem-caption"
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter") event.currentTarget.blur();
-                        }}
-                        onBlur={(event) => {
-                          const value = event.target.value.trim();
-                          if (value !== (opened.photo_caption ?? "")) void patch(opened, { photo_caption: value });
-                        }}
-                      />
-                    </figcaption>
-                  </figure>
-                  <div className="mt-5 flex justify-center gap-2.5">
-                    <PhotoPicker onPick={(file) => void setMemoryPhoto(opened, file)} disabled={busyId === opened.id} className="mem-ghost">
-                      <ImagePlus size={15} />
-                      cambiar foto
-                    </PhotoPicker>
-                    <button type="button" onClick={() => void patch(opened, { remove_photo: true })} disabled={busyId === opened.id} className="mem-ghost">
-                      <X size={15} />
-                      quitar foto
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <PhotoPicker onPick={(file) => void setMemoryPhoto(opened, file)} disabled={busyId === opened.id} className={`mem-add-big ${busyId === opened.id ? "animate-pulse" : ""}`}>
-                  <ImagePlus size={26} />
-                  {busyId === opened.id ? "pegando tu foto…" : "agregarle una foto"}
-                </PhotoPicker>
-              )}
-
-              <div className="mt-7 flex flex-wrap items-baseline gap-x-2.5">
-                {opened.created_at ? (
-                  <>
-                    <span className="font-display text-[30px] font-semibold leading-none text-[#421f2b]">
-                      {dateBits(opened.created_at).day} de {dateBits(opened.created_at).month}
-                    </span>
-                    <span className="font-hand text-xl text-[#9e3b56]">
-                      {dateBits(opened.created_at).year} · {dateBits(opened.created_at).time}
-                    </span>
-                  </>
-                ) : (
-                  <span className="font-hand text-2xl text-[#9e3b56]">de los primeros · sin fecha</span>
-                )}
-              </div>
-              <p className="mt-2.5 whitespace-pre-line break-words text-[15.5px] leading-[1.7] text-[#42222b]">{opened.text}</p>
-              {error && <p className="mt-4 text-sm text-rose-700">{error}</p>}
-            </div>
-          </div>
-        ) : view === "new" ? (
+        {view === "new" ? (
           // ---------- Escribir un recuerdo ----------
           <div className="flex min-h-0 flex-1 flex-col">
             <header className="flex items-start justify-between gap-3 px-6 pt-8 sm:px-7">
@@ -457,7 +477,7 @@ export default function MemoriesBox({ onClose, api }: Props) {
               <span className="min-w-0 flex-1 truncate font-hand text-[18px] text-[#85505f]">
                 {draft.length.toLocaleString("es-MX")} / 10 000<span className="hidden sm:inline"> · foto opcional</span>
               </span>
-              <button type="button" onClick={() => setView("list")} className="min-h-11 rounded-full px-3 text-sm text-[#7a2c43] hover:bg-[#fae6ec] sm:px-4">
+              <button type="button" onClick={() => setView("home")} className="min-h-11 rounded-full px-3 text-sm text-[#7a2c43] hover:bg-[#fae6ec] sm:px-4">
                 cancelar
               </button>
               <button type="button" onClick={() => void save()} disabled={!draft.trim() || saving} className="mem-primary px-4 sm:px-5">
@@ -482,27 +502,32 @@ export default function MemoriesBox({ onClose, api }: Props) {
 
             {count > 0 && (
               <>
-                <div className="flex items-center justify-between gap-3 px-6 pt-2 sm:px-8">
-                  <span className="font-hand text-[19px] leading-tight text-[#9e3b56] sm:text-xl">
-                    {count} {count === 1 ? "recuerdo" : "recuerdos"}
-                    {firstDated?.created_at && (
-                      <span className="hidden sm:inline">
-                        {" "}
-                        · el primero con fecha, del {dateBits(firstDated.created_at).day} de {dateBits(firstDated.created_at).month}
-                      </span>
-                    )}
+                <div className="flex items-center justify-between gap-3 px-5 pt-3 sm:px-8">
+                  <div role="group" aria-label="Cómo ver tus recuerdos" className="mem-switch">
+                    <button type="button" aria-pressed={mode === "calendar"} onClick={() => setMode("calendar")}>
+                      <CalendarDays size={16} />
+                      calendario
+                    </button>
+                    <button type="button" aria-pressed={mode === "list"} onClick={() => setMode("list")}>
+                      <List size={16} />
+                      lista
+                    </button>
+                  </div>
+                  <span className="text-right font-hand text-[19px] leading-tight text-[#9e3b56] sm:text-xl">
+                    {plural(count, "recuerdo", "recuerdos")}
                   </span>
-                  <span className="shrink-0 text-[11px] text-[#85505f]">hora de México</span>
                 </div>
-                <label className="mem-search mx-6 mt-3 sm:mx-8">
-                  <Search size={15} className="shrink-0 text-[#9e3b56]" />
-                  <span className="sr-only">Buscar en tus recuerdos</span>
-                  <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="buscar en tus recuerdos…" />
-                </label>
+                {mode === "list" && (
+                  <label className="mem-search mx-6 mt-3 sm:mx-8">
+                    <Search size={15} className="shrink-0 text-[#9e3b56]" />
+                    <span className="sr-only">Buscar en tus recuerdos</span>
+                    <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="buscar en tus recuerdos…" />
+                  </label>
+                )}
               </>
             )}
 
-            <div className="mem-scroll px-5 pb-6 pt-4 sm:px-8">
+            <div className={`mem-scroll px-5 pb-6 sm:px-8 ${mode === "calendar" ? "pt-6" : "pt-4"}`}>
               {loading ? (
                 <p className="animate-pulse py-10 text-center font-hand text-2xl text-[#b07d8d]">abriendo tu álbum…</p>
               ) : error && !count ? (
@@ -512,6 +537,125 @@ export default function MemoriesBox({ onClose, api }: Props) {
                   <p className="font-hand text-[26px] text-[#9e3b56]">aún no hay recuerdos aquí</p>
                   <p className="mt-1 text-sm text-[#7d4a5a]">el primero que escribas estrena el álbum</p>
                 </div>
+              ) : mode === "calendar" ? (
+                // ---------- El calendario ----------
+                <>
+                  <div className="mem-cal">
+                    <span aria-hidden="true" className="panel-tape mem-cal-tape" />
+                    <div className="flex items-center justify-between gap-2 px-0.5 pb-2">
+                      <button type="button" onClick={() => moveMonth(-1)} disabled={!canPrev} aria-label="Mes anterior" className="mem-cal-nav">
+                        <ChevronLeft size={18} />
+                      </button>
+                      <div className="min-w-0 text-center" aria-live="polite">
+                        <div className="mem-cal-month">
+                          {MONTHS[month.m]} <span className="text-[#9e3b56]">{month.y}</span>
+                        </div>
+                        <div className="mt-0.5 font-hand text-[17px] leading-tight text-[#85505f]">
+                          {monthCount ? `${plural(monthCount, "recuerdo", "recuerdos")} en ${plural(monthDays.length, "día", "días")}` : "este mes aún está en blanco"}
+                        </div>
+                      </div>
+                      <button type="button" onClick={() => moveMonth(1)} disabled={!canNext} aria-label="Mes siguiente" className="mem-cal-nav">
+                        <ChevronRight size={18} />
+                      </button>
+                    </div>
+
+                    <div aria-hidden="true" className="mem-week">
+                      {WEEKDAYS.map((day) => (
+                        <span key={day}>{day}</span>
+                      ))}
+                    </div>
+                    <div className="mem-grid">
+                      {monthCells(month).map((cell) => {
+                        const items = cell.inMonth ? (byDay.get(cell.key) ?? []) : [];
+                        const future = cell.key > todayKey;
+                        const label = `${cell.day} de ${MONTHS[Number(cell.key.slice(5, 7)) - 1]}, ${items.length ? plural(items.length, "recuerdo", "recuerdos") : "sin recuerdos"}`;
+                        return (
+                          <button
+                            key={cell.key}
+                            type="button"
+                            disabled={!cell.inMonth || future}
+                            onClick={() => pickDay(cell.key)}
+                            aria-pressed={cell.inMonth && selected === cell.key}
+                            aria-label={label}
+                            data-n={Math.min(items.length, 3) || undefined}
+                            className={`mem-dayc ${cell.inMonth ? "" : "is-out"} ${cell.key === todayKey && cell.inMonth ? "is-today" : ""}`}
+                          >
+                            {cell.day}
+                            {items.length > 0 && <b>{items.length}</b>}
+                            {items.some((m) => m.photo_url) && <i aria-hidden="true" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <div aria-hidden="true" className="mem-legend">
+                      <span>
+                        <b>2</b>recuerdos del día
+                      </span>
+                      <span>
+                        <i />
+                        trae foto
+                      </span>
+                      <span>
+                        <u />
+                        hoy
+                      </span>
+                    </div>
+                  </div>
+
+                  {undated.length > 0 && (
+                    <button type="button" onClick={() => pickDay(UNDATED)} aria-pressed={selected === UNDATED} className="mem-undated">
+                      <span aria-hidden="true" className="mem-undated-seal">
+                        ∞
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block font-hand text-[20px] leading-tight text-[#9e3b56]">{undated.length} de los primeros</span>
+                        <span className="block text-xs text-[#85505f]">los que me contaste antes de que tuvieran fecha</span>
+                      </span>
+                      <ChevronRight size={16} className="shrink-0 text-[#9e3b56]" />
+                    </button>
+                  )}
+
+                  {selected ? (
+                    <div key={selected} className="mem-rise">
+                      <div className="mem-dayhead">
+                        <span className="font-display text-[26px] font-semibold leading-none text-[#421f2b]">{selected === UNDATED ? "de los primeros" : dayLabel(selected)}</span>
+                        <span className="font-hand text-xl leading-none text-[#9e3b56]">{selectedItems.length ? plural(selectedItems.length, "recuerdo", "recuerdos") : "sin recuerdos"}</span>
+                        <i aria-hidden="true" />
+                      </div>
+                      {selectedItems.length ? (
+                        <div className="flex flex-col gap-3">
+                          {selectedItems.map((memory) => {
+                            const [hour, period] = memory.created_at ? timeLabel(memory.created_at).split(" ") : ["∞", "sin fecha"];
+                            return (
+                              <button key={memory.id} type="button" onClick={() => openMemory(memory)} className={`mem-mini ${justSaved === memory.id ? "is-new" : ""}`}>
+                                <span className="mem-date">
+                                  <span className="mem-day">{hour}</span>
+                                  <span className="mem-mon">{period}</span>
+                                </span>
+                                <span className="mem-text is-clamped">{memory.text}</span>
+                                {memory.photo_url && (
+                                  <span className="mem-pol mem-pol-thumb" aria-hidden="true">
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img src={memory.photo_url} alt="" onError={refreshPhotos} />
+                                  </span>
+                                )}
+                                {justSaved === memory.id && <span className="mem-stamp-done">¡guardado!</span>}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="rounded-2xl border-[1.5px] border-dashed border-[#ecbccb] bg-[#fffaf6] px-4 py-6 text-center">
+                          <p className="font-hand text-[23px] leading-tight text-[#9e3b56]">ese día no guardaste nada… todavía</p>
+                          <p className="mt-1 text-[12.5px] text-[#7d4a5a]">el álbum tiene espacio para lo que quieras contarme</p>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="mt-6 text-center font-hand text-[22px] text-[#9e3b56]">toca un día con número para abrir sus recuerdos</p>
+                  )}
+                </>
               ) : !visible.length ? (
                 <p className="py-10 text-center font-hand text-2xl text-[#9e3b56]">ningún recuerdo dice eso… todavía</p>
               ) : (
@@ -549,7 +693,7 @@ export default function MemoriesBox({ onClose, api }: Props) {
                                   {memory.text}
                                 </button>
                                 {memory.photo_url && (
-                                  <button type="button" onClick={() => openDetail(memory)} className="mem-pol mem-pol-thumb" aria-label="Ver el recuerdo con su foto">
+                                  <button type="button" onClick={() => openMemory(memory)} className="mem-pol mem-pol-thumb" aria-label="Ver el recuerdo con su foto">
                                     {/* eslint-disable-next-line @next/next/no-img-element */}
                                     <img src={memory.photo_url} alt="" onError={refreshPhotos} />
                                   </button>
@@ -634,6 +778,110 @@ export default function MemoriesBox({ onClose, api }: Props) {
                 </button>
               </footer>
             )}
+          </div>
+        )}
+
+        {view === "home" && opened && (
+          // ---------- Un recuerdo abierto ----------
+          <div className="mem-overlay" onClick={() => setOpenId(null)}>
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-label={opened.created_at ? `Recuerdo del ${dateBits(opened.created_at).day} de ${dateBits(opened.created_at).month}` : "Recuerdo sin fecha"}
+              className="mem-dialog"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <span aria-hidden="true" className="panel-tape mem-dialog-tape" />
+              <div className="flex items-center justify-between gap-2 pl-5 pr-2 pt-2.5">
+                <span className="font-hand text-[19px] text-[#9e3b56]">
+                  {openIds.length > 1 ? `${openIndex + 1} de ${openIds.length} ${opened.created_at ? "ese día" : "sin fecha"}` : opened.created_at ? "un recuerdo" : "de los primeros"}
+                </span>
+                <button type="button" autoFocus onClick={() => setOpenId(null)} aria-label="Cerrar el recuerdo" className="rounded-full p-3 text-[#8f475a] hover:bg-[#fae6ec]">
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="mem-scroll px-6 pb-5">
+                {opened.photo_url ? (
+                  <>
+                    <figure className={`mem-pol mem-pol-big ${busyId === opened.id ? "animate-pulse" : ""}`}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={opened.photo_url} alt={opened.photo_caption ?? "Foto del recuerdo"} onError={refreshPhotos} />
+                      <figcaption>
+                        <label htmlFor="mem-caption" className="sr-only">
+                          Pie de foto
+                        </label>
+                        <input
+                          id="mem-caption"
+                          key={`${opened.id}-${opened.photo_caption ?? ""}`}
+                          defaultValue={opened.photo_caption ?? ""}
+                          maxLength={MAX_CAPTION}
+                          placeholder="escribe un pie de foto…"
+                          className="mem-caption"
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter") event.currentTarget.blur();
+                          }}
+                          onBlur={(event) => {
+                            const value = event.target.value.trim();
+                            if (value !== (opened.photo_caption ?? "")) void patch(opened, { photo_caption: value });
+                          }}
+                        />
+                      </figcaption>
+                    </figure>
+                    <div className="mt-4 flex justify-center gap-2">
+                      <PhotoPicker onPick={(file) => void setMemoryPhoto(opened, file)} disabled={busyId === opened.id} className="mem-ghost">
+                        <ImagePlus size={15} />
+                        cambiar foto
+                      </PhotoPicker>
+                      <button type="button" onClick={() => void patch(opened, { remove_photo: true })} disabled={busyId === opened.id} className="mem-ghost">
+                        <X size={15} />
+                        quitar foto
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <PhotoPicker onPick={(file) => void setMemoryPhoto(opened, file)} disabled={busyId === opened.id} className={`mem-add-big ${busyId === opened.id ? "animate-pulse" : ""}`}>
+                    <ImagePlus size={26} />
+                    {busyId === opened.id ? "pegando tu foto…" : "agregarle una foto"}
+                  </PhotoPicker>
+                )}
+
+                <div className="mt-6 flex flex-wrap items-baseline gap-x-2.5">
+                  {opened.created_at ? (
+                    <>
+                      <span className="font-display text-[28px] font-semibold leading-none text-[#421f2b]">
+                        {dateBits(opened.created_at).day} de {dateBits(opened.created_at).month}
+                      </span>
+                      <span className="font-hand text-xl text-[#9e3b56]">
+                        {dateBits(opened.created_at).year} · {dateBits(opened.created_at).time}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="font-hand text-2xl text-[#9e3b56]">de los primeros · sin fecha</span>
+                  )}
+                </div>
+                <p className="mt-2.5 whitespace-pre-line break-words text-[15px] leading-[1.7] text-[#42222b]">{opened.text}</p>
+                {error && <p className="mt-4 text-sm text-rose-700">{error}</p>}
+              </div>
+
+              {openIds.length > 1 && (
+                <div className="flex shrink-0 items-center justify-between gap-2 border-t-[1.5px] border-dashed border-[#f0c3d0] px-3 pb-3 pt-2">
+                  <button type="button" onClick={() => stepOpen(-1)} disabled={openIndex <= 0} className="mem-step">
+                    <ChevronLeft size={16} />
+                    anterior
+                  </button>
+                  <span aria-hidden="true" className="mem-dots">
+                    {openIds.map((id, index) => (
+                      <span key={id} className={index === openIndex ? "is-on" : ""} />
+                    ))}
+                  </span>
+                  <button type="button" onClick={() => stepOpen(1)} disabled={openIndex >= openIds.length - 1} className="mem-step">
+                    siguiente
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </section>
