@@ -386,7 +386,7 @@ body { margin: 0; background: radial-gradient(circle at 11% 10%, rgba(228, 211, 
 .mem-dialog-tape { left: 50%; top: -11px; width: 84px; height: 22px; transform: translateX(-50%) rotate(-2deg); }
 .mem-dialog .mem-pol-big { width: min(260px, 78%); margin-top: 8px; }
 .mem-dialog .mem-add-big { width: min(200px, 64%); margin-top: 8px; }
-.mem-step { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; padding: 0 12px; border-radius: 999px; font-family: var(--font-caveat), cursive; font-size: 19px; color: #9e3b56; }
+.mem-step { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 4px; min-height: 44px; padding: 0 12px; border-radius: 999px; font-family: var(--font-caveat), cursive; font-size: 19px; color: #9e3b56; }
 .mem-step:hover { background: #fde9ee; }
 .mem-step:disabled { opacity: .3; background: none; }
 .mem-dots { display: flex; gap: 6px; }

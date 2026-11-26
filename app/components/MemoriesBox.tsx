@@ -75,6 +75,7 @@ const dayKey = (iso: string) => {
 const MONTHS = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
 const WEEKDAYS = ["lu", "ma", "mi", "ju", "vi", "sá", "do"];
 const UNDATED = "sin-fecha";
+const MAX_DOTS = 7;
 
 type Month = { y: number; m: number }; // m: 0 = enero
 const monthOf = (key: string): Month => ({ y: Number(key.slice(0, 4)), m: Number(key.slice(5, 7)) - 1 });
@@ -870,11 +871,18 @@ export default function MemoriesBox({ onClose, api }: Props) {
                     <ChevronLeft size={16} />
                     anterior
                   </button>
-                  <span aria-hidden="true" className="mem-dots">
-                    {openIds.map((id, index) => (
-                      <span key={id} className={index === openIndex ? "is-on" : ""} />
-                    ))}
-                  </span>
+                  {/* Con muchos recuerdos los puntitos no caben: se cambia a contador. */}
+                  {openIds.length <= MAX_DOTS ? (
+                    <span aria-hidden="true" className="mem-dots">
+                      {openIds.map((id, index) => (
+                        <span key={id} className={index === openIndex ? "is-on" : ""} />
+                      ))}
+                    </span>
+                  ) : (
+                    <span aria-hidden="true" className="min-w-0 truncate font-hand text-[19px] text-[#85505f]">
+                      {openIndex + 1} / {openIds.length}
+                    </span>
+                  )}
                   <button type="button" onClick={() => stepOpen(1)} disabled={openIndex >= openIds.length - 1} className="mem-step">
                     siguiente
                     <ChevronRight size={16} />
