@@ -3,15 +3,15 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CalendarDays, ChevronLeft, Music, Tv } from "lucide-react";
-import { SKIP_CURTAIN_KEY } from "../components/WelcomeCurtain";
+import { CalendarDays, ChevronLeft, Music, Plus, Tv } from "lucide-react";
 import { Etapas } from "./Etapas";
 import { AddSeries, SeriesHome, SeriesPage } from "./Series";
-import { AddSong, SongPage, SongsHome } from "./Songs";
+import { AddSong, ChooseSong, SongPage, SongsHome } from "./Songs";
+import type { PickSlot } from "./Songs";
+import { Dock, markSkipCurtain } from "./shared";
+import type { Tab } from "./shared";
 import type { Companion, Episode, MonthNote, Show, Song } from "./types";
-import { json, nextEpisode } from "./types";
-
-type Tab = "songs" | "series" | "etapas";
+import { json, nextEpisode, periodStart } from "./types";
 
 async function api<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(`/api/backend/${path}`, { cache: "no-store", ...options });
@@ -24,10 +24,31 @@ async function api<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 const TABS: { id: Tab; label: string; icon: typeof Music }[] = [
-  { id: "songs", label: "Canciones", icon: Music },
-  { id: "series", label: "Series", icon: Tv },
-  { id: "etapas", label: "Por etapas", icon: CalendarDays },
+  { id: "songs", label: "canciones", icon: Music },
+  { id: "series", label: "series", icon: Tv },
+  { id: "etapas", label: "por etapas", icon: CalendarDays },
 ];
+
+const TITLES: Record<Tab, { title: string; sub: string }> = {
+  songs: { title: "playlist", sub: "las canciones y las historias que me acompañan, con lo que me hacen sentir" },
+  series: { title: "lo que estoy viendo", sub: "series, k-dramas y animes, con lo que me van dejando" },
+  etapas: { title: "por etapas", sub: "qué me acompañó cada mes: la canción, las semanas y las historias" },
+};
+
+// El disco del encabezado, con su brazo, para el celular.
+function HeadDisc() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 100 100" className="head-disc">
+      <circle cx="50" cy="50" r="46" fill="#070608" />
+      <circle cx="50" cy="50" r="38" fill="none" stroke="rgba(255,255,255,.07)" />
+      <circle cx="50" cy="50" r="30" fill="none" stroke="rgba(255,255,255,.07)" />
+      <circle cx="50" cy="50" r="15" fill="#f7a8bf" />
+      <circle cx="50" cy="50" r="3" fill="#121114" />
+      <path d="M92 8 L64 38" stroke="#f3cf8e" strokeWidth="3" strokeLinecap="round" />
+      <circle cx="92" cy="8" r="5" fill="#f3cf8e" />
+    </svg>
+  );
+}
 
 export default function AcompanaPage() {
   const router = useRouter();
@@ -37,6 +58,7 @@ export default function AcompanaPage() {
   const [songId, setSongId] = useState<string | null>(null);
   const [showId, setShowId] = useState<string | null>(null);
   const [adding, setAdding] = useState<"song" | "series" | null>(null);
+  const [choosing, setChoosing] = useState<PickSlot | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -63,6 +85,7 @@ export default function AcompanaPage() {
   const putSong = (song: Song) => update((d) => ({ ...d, songs: d.songs.some((s) => s.id === song.id) ? d.songs.map((s) => (s.id === song.id ? song : s)) : [song, ...d.songs] }));
   const putShow = (show: Show) => update((d) => ({ ...d, series: d.series.some((s) => s.id === show.id) ? d.series.map((s) => (s.id === show.id ? show : s)) : [show, ...d.series] }));
   const putMonth = (note: MonthNote) => update((d) => ({ ...d, months: [note, ...d.months.filter((m) => m.month !== note.month)] }));
+  const putPicks = (picks: Companion["picks"]) => update((d) => ({ ...d, picks }));
 
   const removeSong = async (song: Song) => {
     setSongId(null);
@@ -85,57 +108,75 @@ export default function AcompanaPage() {
     }
   };
 
-  const markSkipCurtain = () => {
-    try {
-      sessionStorage.setItem(SKIP_CURTAIN_KEY, "1");
-    } catch {
-      // Sin sessionStorage solo se repite el telón.
-    }
-  };
-
   const song = data?.songs.find((s) => s.id === songId) ?? null;
   const show = data?.series.find((s) => s.id === showId) ?? null;
+  const openTab = (next: Tab) => {
+    setSongId(null);
+    setShowId(null);
+    setTab(next);
+  };
+  // El + del celular agrega lo que corresponde a donde está.
+  const addKind: "song" | "series" = show || (tab === "series" && !song) ? "series" : "song";
+  const add = () => setAdding(addKind);
 
   return (
-    <main className="refugio-bg relative min-h-dvh overflow-x-hidden pb-14 text-[#42222b]">
-      <div className="relative z-10 mx-auto max-w-6xl px-4 pt-6 sm:px-8 sm:pt-9">
-        {!song && !show && (
-          <header className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <Link href="/" onClick={markSkipCurtain} className="acm-back !text-[#9e3b56]">
-                <ChevronLeft size={16} /> volver al chat
-              </Link>
-              <h1 className="font-hand text-[50px] font-semibold leading-[.9] text-[#9e3b56] sm:text-[62px]">playlist</h1>
-              <p className="mt-2 text-sm text-[#7d4a5a]">las canciones y las historias de cada etapa, con lo que me hicieron sentir</p>
+    <main className="pl">
+      {song && data ? (
+        <SongPage key={song.id} api={api} song={song} data={data} onBack={() => setSongId(null)} onChange={putSong} onRemove={(s) => void removeSong(s)} onPicks={putPicks} />
+      ) : show ? (
+        <SeriesPage key={show.id} api={api} show={show} onBack={() => setShowId(null)} onChange={putShow} onRemove={(s) => void removeShow(s)} />
+      ) : (
+        <div className="wrap">
+          <div className="flex items-center justify-between gap-3">
+            <Link href="/" onClick={markSkipCurtain} className="back">
+              <ChevronLeft size={16} /> <span className="lg:hidden">al chat</span>
+              <span className="hidden lg:inline">volver al chat</span>
+            </Link>
+            {data && (
+              <span className="hand text-[19px] text-[var(--cream-dim)] lg:hidden">
+                {data.songs.length} {data.songs.length === 1 ? "canción" : "canciones"} · {data.series.length} series
+              </span>
+            )}
+          </div>
+          <header className="head relative mt-1.5">
+            <div className="min-w-0 pr-24 lg:pr-0">
+              <h1 className="brand">{TITLES[tab].title}</h1>
+              <p className="brand-sub">{TITLES[tab].sub}</p>
             </div>
-            <nav aria-label="Secciones" className="flex flex-wrap gap-2">
-              {TABS.map(({ id, label, icon: Icon }) => (
-                <button key={id} type="button" onClick={() => setTab(id)} aria-pressed={tab === id} className={`acm-tab ${tab === id ? "is-on" : ""}`}>
-                  <Icon size={16} /> {label}
+            <div className="head-tools">
+              <nav className="tabs" aria-label="Secciones de la playlist">
+                {TABS.map(({ id, label, icon: Icon }) => (
+                  <button key={id} type="button" onClick={() => openTab(id)} aria-pressed={tab === id}>
+                    <Icon size={17} /> {label}
+                  </button>
+                ))}
+              </nav>
+              {tab !== "etapas" && (
+                <button type="button" onClick={add} className="btn btn-rose !min-h-[50px] !px-[22px]">
+                  <Plus size={18} strokeWidth={2.4} /> {tab === "series" ? "agregar una serie" : "agregar una canción"}
                 </button>
-              ))}
-            </nav>
+              )}
+            </div>
+            {tab === "songs" && <HeadDisc />}
           </header>
-        )}
 
-        {error && <p className="mt-4 text-sm text-rose-700">{error}</p>}
+          {error && <p className="err mt-4">{error}</p>}
 
-        <div className={song || show ? "" : "mt-8"}>
-          {!data ? (
-            !error && <p className="animate-pulse py-16 text-center font-hand text-3xl text-[#b07d8d]">abriendo tu playlist…</p>
-          ) : song ? (
-            <SongPage key={song.id} api={api} song={song} data={data} onBack={() => setSongId(null)} onChange={putSong} onRemove={(s) => void removeSong(s)} onPicks={(picks) => update((d) => ({ ...d, picks }))} />
-          ) : show ? (
-            <SeriesPage key={show.id} api={api} show={show} onBack={() => setShowId(null)} onChange={putShow} onRemove={(s) => void removeShow(s)} />
-          ) : tab === "songs" ? (
-            <SongsHome data={data} onOpen={(s) => setSongId(s.id)} onAdd={() => setAdding("song")} />
-          ) : tab === "series" ? (
-            <SeriesHome data={data} onOpen={(s) => setShowId(s.id)} onAdd={() => setAdding("series")} onWatch={(s) => void watchNext(s)} />
-          ) : (
-            <Etapas api={api} data={data} onOpenSong={(s) => setSongId(s.id)} onOpenShow={(s) => setShowId(s.id)} onMonth={putMonth} onPicks={(picks) => update((d) => ({ ...d, picks }))} />
-          )}
+          <div className="mt-7 lg:mt-9">
+            {!data ? (
+              !error && <p className="hand animate-pulse py-16 text-center text-3xl text-[var(--cream-dim)]">poniendo el disco…</p>
+            ) : tab === "songs" ? (
+              <SongsHome data={data} onOpen={(s) => setSongId(s.id)} onChoose={(kind) => setChoosing({ kind, period: periodStart(kind, data.today) })} onHistory={() => openTab("etapas")} />
+            ) : tab === "series" ? (
+              <SeriesHome api={api} data={data} onOpen={(s) => setShowId(s.id)} onAdd={() => setAdding("series")} onWatch={(s) => void watchNext(s)} />
+            ) : (
+              <Etapas api={api} data={data} onOpenSong={(s) => setSongId(s.id)} onOpenShow={(s) => setShowId(s.id)} onMonth={putMonth} onPicks={putPicks} onAdded={putSong} />
+            )}
+          </div>
         </div>
-      </div>
+      )}
+
+      <Dock tab={song || show ? null : tab} onTab={openTab} onAdd={add} addLabel={addKind === "series" ? "Agregar una serie" : "Agregar una canción"} />
 
       {adding === "song" && (
         <AddSong
@@ -144,6 +185,7 @@ export default function AcompanaPage() {
           onAdded={(s) => {
             putSong(s);
             setAdding(null);
+            setShowId(null);
             setSongId(s.id);
           }}
         />
@@ -155,10 +197,12 @@ export default function AcompanaPage() {
           onAdded={(s) => {
             putShow(s);
             setAdding(null);
+            setSongId(null);
             setShowId(s.id);
           }}
         />
       )}
+      {choosing && data && <ChooseSong api={api} data={data} slot={choosing} onClose={() => setChoosing(null)} onPicks={putPicks} onAdded={putSong} />}
     </main>
   );
 }
