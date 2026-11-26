@@ -425,3 +425,37 @@ body { margin: 0; background: radial-gradient(circle at 11% 10%, rgba(228, 211, 
 .mem-moved { right: -14px; bottom: -14px; z-index: 3; white-space: nowrap; }
 @keyframes mem-up { from { transform: translateY(100%); } to { transform: none; } }
 @media (prefers-reduced-motion: reduce) { .mem-sheet-overlay, .mem-sheet { animation: none; } .mem-stamp-btn { transition: none; } }
+
+/* ---------- Tarjetas de TMDB en el chat ---------- */
+.tmdb { position: relative; display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 440px; margin: 12px 0; padding: 12px; overflow: hidden; border-radius: 20px; border: 1px solid #f3d3dc; background: linear-gradient(160deg, #fffaf6, #fff1f5); box-shadow: 0 14px 28px -20px rgba(122, 44, 67, .55); color: #4a2e35; text-decoration: none; transition: transform .2s ease, box-shadow .2s ease; }
+.tmdb:hover { transform: translateY(-2px); box-shadow: 0 20px 32px -20px rgba(122, 44, 67, .65); }
+.tmdb:focus-visible { outline: 2px solid #d9567a; outline-offset: 3px; }
+.tmdb-bd { position: absolute; inset: 0 0 auto; width: 100%; height: 96px; object-fit: cover; opacity: .22; -webkit-mask-image: linear-gradient(180deg, #000, transparent); mask-image: linear-gradient(180deg, #000, transparent); pointer-events: none; }
+.tmdb-row { position: relative; display: flex; align-items: flex-start; gap: 14px; }
+.tmdb-poster { flex: 0 0 auto; width: 84px; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 6px; background: #f6dde4; box-shadow: 0 10px 18px -10px rgba(74, 34, 48, .7); transform: rotate(-2deg); }
+.tmdb-poster.is-small { width: 46px; border-radius: 4px; transform: rotate(-2deg) translateY(-26px); margin-bottom: -26px; border: 2px solid #fff; }
+.tmdb-body { display: flex; flex-direction: column; gap: 3px; min-width: 0; padding-top: 2px; }
+.tmdb-kicker { font-size: 10.5px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: #9e4c61; }
+.tmdb-title { font-family: var(--font-cormorant), Georgia, serif; font-size: 23px; font-weight: 600; line-height: 1.02; color: #421f2b; }
+.tmdb-sub { font-size: 12px; color: #85505f; }
+.tmdb-facts { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin-top: 5px; }
+.tmdb-rating { display: inline-flex; align-items: center; gap: 3px; padding: 2px 8px; border-radius: 999px; background: #4a2230; font-size: 11.5px; font-weight: 600; color: #ffd98a; }
+.tmdb-genre { padding: 2px 8px; border-radius: 999px; background: #fae1e7; font-size: 11px; color: #7a2c43; }
+.tmdb-overview { position: relative; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; font-size: 13px; line-height: 1.5; color: #5c3a44; }
+.tmdb-foot { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-top: 8px; border-top: 1px dashed #efc6d1; }
+.tmdb-mine { padding: 2px 9px; border-radius: 999px; background: #f7a8bf; font-family: var(--font-caveat), cursive; font-size: 16px; color: #3a1a26; }
+.tmdb-go { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; color: #a45d6f; }
+.tmdb-go b { padding: 1px 5px; border-radius: 4px; background: linear-gradient(90deg, #90cea1, #01b4e4); font-size: 9px; font-weight: 800; letter-spacing: .04em; color: #0d253f; }
+.tmdb.is-episode { padding-top: 0; }
+.tmdb-still { position: relative; display: block; margin: 0 -12px; aspect-ratio: 16 / 8; overflow: hidden; background: #f6dde4; }
+.tmdb-still img { width: 100%; height: 100%; object-fit: cover; }
+.tmdb-still::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 45%, rgba(66, 31, 43, .55)); }
+.tmdb-ep-badge { position: absolute; left: 12px; bottom: 10px; z-index: 1; display: inline-flex; align-items: baseline; gap: 6px; padding: 3px 10px; border-radius: 999px; background: rgba(255, 250, 246, .92); font-size: 12px; font-weight: 700; letter-spacing: .04em; color: #4a2230; }
+.tmdb-ep-badge small { font-size: 11px; font-weight: 500; color: #85505f; }
+.tmdb.is-episode .tmdb-row { padding-left: 2px; }
+.tmdb.is-episode .tmdb-title { font-size: 21px; }
+.tmdb-skel, .tmdb-skel-line { background: linear-gradient(90deg, #f6e1e7, #fdf3f6, #f6e1e7); background-size: 200% 100%; animation: tmdb-shimmer 1.4s linear infinite; }
+.tmdb-skel-line { display: block; height: 10px; margin: 4px 0; border-radius: 999px; }
+.tmdb .tmdb-body:has(.tmdb-skel-line) { flex: 1; }
+@keyframes tmdb-shimmer { to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { .tmdb { transition: none; } .tmdb-skel, .tmdb-skel-line { animation: none; } }

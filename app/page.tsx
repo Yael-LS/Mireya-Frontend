@@ -31,6 +31,7 @@ import confetti from "canvas-confetti";
 import Swal from "sweetalert2";
 import AvatarPicker, { DEFAULT_AVATAR } from "./components/AvatarPicker";
 import IdeasBox from "./components/IdeasBox";
+import TmdbCard, { tmdbRef } from "./components/TmdbCard";
 import MemoriesBox, { MemoriesIcon } from "./components/MemoriesBox";
 import ScrapbookBackground from "./components/ScrapbookBackground";
 import TulipIcon from "./components/TulipIcon";
@@ -168,6 +169,15 @@ function MultimediaLink({ href, children, ...props }: ComponentProps<"a">) {
             allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
           />
         </span>
+      );
+    }
+
+    const tmdb = tmdbRef(url);
+    if (tmdb) {
+      return (
+        <TmdbCard href={href} tmdb={tmdb}>
+          {children}
+        </TmdbCard>
       );
     }
 
